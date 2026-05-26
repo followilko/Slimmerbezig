@@ -38,12 +38,11 @@ Paste both into `.env.local`.
 ### Run the database schema
 
 1. Open **SQL Editor** in Supabase.
-2. Paste the contents of [`supabase/schema.sql`](supabase/schema.sql).
-3. Click **Run**.
+2. Paste the contents of [`supabase/schema.sql`](supabase/schema.sql) → **Run** (profiles + OAuth trigger).
+3. Paste the contents of [`supabase/learning_schema.sql`](supabase/learning_schema.sql) → **Run** (sector/role extensions, hacks, tags, frustrations, weekly check-ins, challenges, interactions, RLS, `get_recommended_hacks()`).
+4. **Optional**: at the bottom of [`supabase/learning_schema.sql`](supabase/learning_schema.sql), uncomment and run the **OPTIONAL SEED** block alone to insert sector + sample frustration tags (must align with curated content later).
 
-This creates **`public.profiles`**, Row Level Security, and a trigger so every new **`auth.users`** row gets a matching profile (name, email, avatar from LinkedIn metadata where available).
-
-**Do not run** [`supabase/future_schema.sql`](supabase/future_schema.sql) yet — it is a commented sketch for posts / credits / tags (ESCO-ready).
+[`supabase/future_schema.sql`](supabase/future_schema.sql) is a commented-only sketch for credits, reactions, follows, paths, career tables — **do not run** until you move those features out of sketch form.
 
 ### Supabase Auth — URLs
 
@@ -130,8 +129,9 @@ Then wire the `Database` generic into Supabase clients for stronger typing.
 | [`proxy.ts`](proxy.ts) | Next 16 **proxy** — refreshes Supabase cookies; redirects unauthenticated `/dashboard` |
 | [`lib/supabase/proxy.ts`](lib/supabase/proxy.ts) | Shared `updateSession` logic invoked by [`proxy.ts`](proxy.ts) |
 | [`lib/env.ts`](lib/env.ts) | Zod-validated public env vars |
-| [`supabase/schema.sql`](supabase/schema.sql) | Run in SQL Editor (**current**) |
-| [`supabase/future_schema.sql`](supabase/future_schema.sql) | Design sketch (**do not run** until reviewed) |
+| [`supabase/schema.sql`](supabase/schema.sql) | Auth baseline: `profiles` + new-user trigger (run **first**) |
+| [`supabase/learning_schema.sql`](supabase/learning_schema.sql) | Learning MVP: hacks, tags, frustrations, check-ins, challenges, RLS, recommendations RPC |
+| [`supabase/future_schema.sql`](supabase/future_schema.sql) | Commented sketch — credits / social / paths / careers (**don’t run** yet) |
 
 ## Troubleshooting
 
@@ -167,9 +167,11 @@ git remote add origin <your-github-repo-url>
 git push -u origin main
 ```
 
-## Extending later (learning paths / ESCO / credits)
+## Extending later (credits / social / ESCO depth)
 
-New domain tables should reference **`profiles.id`**. Prefer an **append-only `credit_ledger`** for balances (see commented sketch in [`supabase/future_schema.sql`](supabase/future_schema.sql)).
+Production tables reference **`profiles.id`**. Credits should stay **append-only** (see commented ideas in [`supabase/future_schema.sql`](supabase/future_schema.sql)). Map **ESCO URIs** onto `tags.esco_uri` in [`supabase/learning_schema.sql`](supabase/learning_schema.sql) when you import taxonomy — skill rollups then come from joins through `hack_tags` × `hack_interactions`.
+
+Grant yourself **`curator`** or **`creator`** in **Table Editor → `profiles`** to seed hacks and tags in Supabase UI before UI exists.
 
 ## Scripts
 
