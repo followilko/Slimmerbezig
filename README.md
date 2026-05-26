@@ -120,6 +120,8 @@ Then wire the `Database` generic into Supabase clients for stronger typing.
 
 ## Project map
 
+Product / architecture / vocabulary for agents & collaborators lives in **`docs/`** ([`docs/vision.md`](docs/vision.md) …); **README** is setup & ops only.
+
 | Path | Purpose |
 |------|---------|
 | [`app/login/page.tsx`](app/login/page.tsx) | Login screen (LinkedIn button) |
