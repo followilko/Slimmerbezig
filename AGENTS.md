@@ -2,7 +2,7 @@
 
 ## Product (read first)
 
-**Slimmerbezig** is a micro-learning platform: short **AI hacks** matched to each user’s **sector**, **frustrations**, and **weekly check-ins**. Curated content plus user-authored hacks (gated by **`profiles.role`**). This repo is the Next.js web app + SQL schema for Supabase.
+**Slimmerbezig** is a **B2B SaaS micro-learning** platform. Companies roll it out to their teams; users see **AI hacks** matched to their **sector**, **frustrations**, **weekly check-ins**, and **organisation**. Hacks vary in effort (`post_type`: **bite / recipe / guide / external link**) and carry a structured **Goal × Tool × AI-capability** taxonomy. Curated content + colleague-authored hacks + curator-approved external links. Long-term vision: **cross-organisation peer-learning** (people learning from same-field peers at other companies) — deferred until intra-org loops are sticky. Top-level pages: **For You / Communities / Office peers / Challenges**. This repo is the Next.js web app + SQL schema for Supabase.
 
 Operational setup (env, Vercel, LinkedIn): **[README.md](README.md)**  
 Product / architecture / vocabulary: **[docs/](docs/)** (always keep these in sync when behaviour changes).
@@ -40,6 +40,8 @@ Product / architecture / vocabulary: **[docs/](docs/)** (always keep these in sy
 - Don’t commit secrets: **`.env*`** is gitignored — never paste keys into docs or commits.
 - Don’t add `middleware.ts` next to `proxy.ts`.
 - Don’t expose sign-out as a plain **GET** `<Link>` (prefetch / CSRF risk).
+- Don’t leak data across **organisations**: every list/feed query must filter by the current user’s `organization_id` (or be explicitly platform-curated / public).
+- Don’t let non-curators insert hacks with `source = 'external'` — that path is curator/admin only.
 
 ## Maintenance (keep docs honest)
 

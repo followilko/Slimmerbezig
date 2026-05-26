@@ -54,6 +54,40 @@ erDiagram
 
 ---
 
+## Planned (B2B-MVP — schema deltas being scoped)
+
+These are **decided but not yet migrated**. They are tracked in [decisions.md](decisions.md) (B2B SaaS, post types, taxonomy, challenge answers, praise→points, external sources) and [roadmap.md](roadmap.md) (Next → Schema).
+
+### New / changed columns
+
+| Target | Change | Notes |
+|--------|--------|-------|
+| `profiles` | + `organization_id uuid references organizations(id)` | Tenant scope; required for B2B |
+| `tags` | extend `kind` check with `'capability'` | Adds AI-capability vocabulary alongside `tool` |
+| `hacks` | + `post_type` enum `bite \| recipe \| guide \| external` | Effort/length classification |
+| `hacks` | + `goal` enum `automate \| analyse \| generate \| organise \| communicate \| learn \| decide` | Structured taxonomy slot |
+| `hacks` | extend `source` check with `'external'` | Plus required `source_url`, optional `external_author` (curator-only writes) |
+| `hacks` | publish-time check: ≥1 `tags.kind='tool'` and ≥1 `tags.kind='capability'` linked | Enforce via trigger or RPC |
+
+### New tables
+
+| Table | Purpose |
+|-------|---------|
+| `organizations` | Tenant root: name, slug, plan, created_at |
+| `organization_memberships` | Optional if a user can belong to >1 org later; otherwise `profiles.organization_id` is enough |
+| `challenge_comments` | `(challenge_id, author_id, body_md, hack_id NULL, is_self_promotion bool)` |
+| `hack_praises` | `(hack_id, user_id)` unique pair; one praise per user per hack |
+| `comment_praises` | `(comment_id, user_id)` unique pair |
+| `points_ledger` | Append-only: `(actor_id, delta, reason, target_kind, target_id, created_at)` — slim promotion of `credit_ledger` from `future_schema.sql` |
+
+### RLS implications
+
+- Most reads are gated by `profiles.organization_id = current_org()` (helper). Curated platform content is org-agnostic.
+- Only `curator`/`admin` may insert/update `hacks WHERE source='external'`.
+- Praise inserts must enforce `target.author_id <> user_id` (no self-praise) and idempotency via unique constraint.
+
+---
+
 ## Future
 
 All below are inside the **big comment** in [`future_schema.sql`](../supabase/future_schema.sql) — not applied to production DB yet.
