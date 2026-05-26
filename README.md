@@ -133,6 +133,31 @@ Then wire the `Database` generic into Supabase clients for stronger typing.
 | [`supabase/schema.sql`](supabase/schema.sql) | Run in SQL Editor (**current**) |
 | [`supabase/future_schema.sql`](supabase/future_schema.sql) | Design sketch (**do not run** until reviewed) |
 
+## Troubleshooting
+
+### `Could not parse module 'middleware.ts', file not found`
+
+This project uses Next.js 16’s **`proxy.ts`** ([`proxy.ts`](proxy.ts)) instead of `middleware.ts`. If the dev server was left running across that rename (or Turbopack hot-reloaded), the **`.next`** folder can keep a stale reference to **`middleware.ts`**.
+
+Fix:
+
+1. **Stop** the dev server (**Ctrl+C** in the terminal where `npm run dev` is running).
+2. Delete the cache:
+   ```bash
+   cd Slimmerbezig
+   rm -rf .next
+   ```
+   If macOS refuses with “Directory not empty”, extended attributes sometimes block deletion — run once then remove again:
+   ```bash
+   xattr -cr .next && rm -rf .next
+   ```
+3. Start again:
+   ```bash
+   npm run dev
+   ```
+
+Do **not** add `middleware.ts` next to [`proxy.ts`](proxy.ts). Next.js 16 rejects having **both** files; see [`middleware-to-proxy`](https://nextjs.org/docs/messages/middleware-to-proxy).
+
 ## Connect this folder to GitHub
 
 If you created the repo with `git init` locally instead of cloning:
