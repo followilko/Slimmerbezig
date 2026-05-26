@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
+import { signOut } from "@/app/auth/actions"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Card,
@@ -10,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { buttonVariants } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/server"
 
@@ -120,12 +121,11 @@ export default async function DashboardPage() {
           >
             Home
           </Link>
-          <Link
-            className={cn(buttonVariants({ variant: "destructive", size: "sm" }))}
-            href="/auth/signout"
-          >
-            Sign out
-          </Link>
+          <form action={signOut}>
+            <Button type="submit" variant="destructive" size="sm">
+              Sign out
+            </Button>
+          </form>
         </CardFooter>
       </Card>
 

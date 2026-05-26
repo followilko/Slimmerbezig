@@ -8,6 +8,8 @@ Minimal **Next.js (App Router) + TypeScript + Tailwind + shadcn/ui** app with **
 - **npm** (comes with Node)
 - A **GitHub** repo, **Vercel** project, and **Supabase** project (you already have these)
 
+Public env vars are validated at startup via [`lib/env.ts`](lib/env.ts) (**Zod**). If keys are missing (e.g. Vercel env not set), the app fails fast with a clear parse error instead of obscure cookie errors later.
+
 ## 1. Clone & install (local)
 
 ```bash
@@ -41,26 +43,28 @@ Paste both into `.env.local`.
 
 This creates **`public.profiles`**, Row Level Security, and a trigger so every new **`auth.users`** row gets a matching profile (name, email, avatar from LinkedIn metadata where available).
 
+**Do not run** [`supabase/future_schema.sql`](supabase/future_schema.sql) yet — it is a commented sketch for posts / credits / tags (ESCO-ready).
+
 ### Supabase Auth — URLs
 
 **Authentication → URL Configuration**
 
 | Setting | Typical value |
 |--------|----------------|
-| **Site URL** | `http://localhost:3000` while developing |
-| **Redirect URLs** | Add BOTH `http://localhost:3000/auth/callback` and later `https://<your-vercel-domain>/auth/callback` |
+| **Site URL** | `http://localhost:3000` while developing; production URL once on Vercel |
+| **Redirect URLs** | `http://localhost:3000/auth/callback`, `https://<your-production-domain>/auth/callback` |
 
-> The OAuth flow returns to **`/auth/callback`** with a `code` query param; Supabase must allow that exact redirect.
+Optional for **preview** deploys (`*.vercel.app`): Supabase supports a single `*` in the hostname, e.g. `https://*-<your-vercel-team>.vercel.app/auth/callback`.
+
+> OAuth returns to **`/auth/callback`** on your Next app after Supabase finishes the exchange; whitelist that full URL pattern.
 
 ## 3. LinkedIn — OpenID Connect app
 
 1. Go to [LinkedIn Developers](https://www.linkedin.com/developers/apps) and create an app.
 2. Under **Products**, request **Sign In with LinkedIn using OpenID Connect** (scopes `openid`, `profile`, `email`).
-3. Under **Auth → OAuth 2.0 settings**, set **Authorized redirect URLs** to:
+3. Under **Auth → OAuth 2.0 settings**, set **Authorized redirect URLs** **exactly** to (no typo, **no stray `;` at the end**):
 
    `https://<YOUR_SUPABASE_PROJECT_REF>.supabase.co/auth/v1/callback`
-
-   Replace `<YOUR_SUPABASE_PROJECT_REF>` with the subdomain from your Supabase URL (the part before `.supabase.co`).
 
 4. Copy **Client ID** and **Client Secret**.
 
@@ -72,7 +76,7 @@ This creates **`public.profiles`**, Row Level Security, and a trigger so every n
 - Paste **Client ID** and **Client Secret**
 - Save
 
-In the app we call `signInWithOAuth({ provider: "linkedin_oidc", ... })`.
+The app calls `signInWithOAuth({ provider: "linkedin_oidc", ... })`.
 
 ## 5. Run locally
 
@@ -82,26 +86,52 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) → **Sign in** → complete LinkedIn → you should land on **`/dashboard`** with your profile row.
 
-## 6. Vercel
+## 6. Vercel deployment — checklist
 
-1. Import the GitHub repo into your Vercel project (or connect via Git).
-2. **Settings → Environment Variables** — add the same two variables as in `.env.local`:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-3. Deploy.
-4. Update Supabase **Site URL** to your production URL (e.g. `https://your-app.vercel.app`) and ensure **Redirect URLs** includes `https://your-app.vercel.app/auth/callback`.
+Follow in order:
+
+1. **Push** latest code to GitHub (`main` recommended).
+2. **Vercel** → open your project → **Settings → Git** → **Connect Repository** → select this repo (or **Add New → Project → Import Git Repository**).
+3. Confirm **Framework Preset**: **Next.js**; build: `npm run build`, output handled by Next.
+4. **Settings → Environment Variables** — add **for Production, Preview, and Development**:
+
+   | Name | Value |
+   |------|--------|
+   | `NEXT_PUBLIC_SUPABASE_URL` | Same as `.env.local` |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same as `.env.local` |
+
+5. Trigger **Deploy** and wait until it succeeds. Copy your **Production URL**, e.g. `https://slimmerbezig.vercel.app`.
+6. **Supabase → Authentication → URL Configuration**  
+   - **Site URL**: set to that production URL.  
+   - **Redirect URLs**: keep local `http://localhost:3000/auth/callback` and add **`https://<production>/auth/callback`** (exact HTTPS host).  
+   - Optional: wildcard preview URL as above if you want PR previews to sign in.
+7. **Test**: open production site → Sign in → LinkedIn → **`/dashboard`**. Confirm a row appears in **`profiles`** in Supabase.
+8. **LinkedIn**: no changes — it still redirects only to **`…supabase.co/auth/v1/callback`**.
+
+## 7. Supabase typed client (optional, later)
+
+When you use the Supabase CLI linked to your project:
+
+```bash
+npx supabase gen types typescript --project-id <project-ref> > lib/database.types.ts
+# or locally: npx supabase gen types typescript --local > lib/database.types.ts
+```
+
+Then wire the `Database` generic into Supabase clients for stronger typing.
 
 ## Project map
 
 | Path | Purpose |
 |------|---------|
 | [`app/login/page.tsx`](app/login/page.tsx) | Login screen (LinkedIn button) |
-| [`app/dashboard/`](app/dashboard/) | Protected area (middleware + layout check) |
-| [`app/auth/callback/route.ts`](app/auth/callback/route.ts) | Exchanges OAuth `code` for a session |
-| [`app/auth/signout/route.ts`](app/auth/signout/route.ts) | Clears session |
-| [`middleware.ts`](middleware.ts) | Refreshes Supabase session cookies; blocks `/dashboard` when logged out |
-| [`lib/supabase/`](lib/supabase/) | Browser / server / middleware Supabase clients |
-| [`supabase/schema.sql`](supabase/schema.sql) | Paste into Supabase SQL Editor |
+| [`app/dashboard/`](app/dashboard/) | Protected area (**Next proxy** + layout `getUser` check) |
+| [`app/auth/callback/route.ts`](app/auth/callback/route.ts) | Exchanges OAuth `code`; uses `x-forwarded-host` on Vercel |
+| [`app/auth/actions.ts`](app/auth/actions.ts) | **`signOut`** Server Action (**POST**) — clears session |
+| [`proxy.ts`](proxy.ts) | Next 16 **proxy** — refreshes Supabase cookies; redirects unauthenticated `/dashboard` |
+| [`lib/supabase/proxy.ts`](lib/supabase/proxy.ts) | Shared `updateSession` logic invoked by [`proxy.ts`](proxy.ts) |
+| [`lib/env.ts`](lib/env.ts) | Zod-validated public env vars |
+| [`supabase/schema.sql`](supabase/schema.sql) | Run in SQL Editor (**current**) |
+| [`supabase/future_schema.sql`](supabase/future_schema.sql) | Design sketch (**do not run** until reviewed) |
 
 ## Connect this folder to GitHub
 
@@ -112,9 +142,9 @@ git remote add origin <your-github-repo-url>
 git push -u origin main
 ```
 
-## Extending later (learning paths / ESCO)
+## Extending later (learning paths / ESCO / credits)
 
-Keep related data in **new tables** that reference **`profiles.id`** (`uuid`), e.g. `learning_paths(user_id uuid references profiles(id) ...)`. That keeps Auth users, profiles, and domain data cleanly separated.
+New domain tables should reference **`profiles.id`**. Prefer an **append-only `credit_ledger`** for balances (see commented sketch in [`supabase/future_schema.sql`](supabase/future_schema.sql)).
 
 ## Scripts
 
