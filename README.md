@@ -35,12 +35,21 @@ In Supabase: **Project Settings → API**
 
 Paste both into `.env.local`.
 
+Also add an **OpenAI API key** (server-only):
+
+- **`OPENAI_API_KEY`** — from [platform.openai.com](https://platform.openai.com/api-keys); used by **`/api/onboarding/chat`** for the guided onboarding + weekly check-in coach. Leave unset locally only if you are not exercising those flows (the route responds **503** when missing).
+
+Optional **`AI_CHAT_STUB_TOOLS=true`** logs tool calls instead of persisting coach rows — useful **before** step 5 (SQL) lands.
+
+See [`.env.local.example`](.env.local.example) for placeholders.
+
 ### Run the database schema
 
 1. Open **SQL Editor** in Supabase.
 2. Paste the contents of [`supabase/schema.sql`](supabase/schema.sql) → **Run** (profiles + OAuth trigger).
 3. Paste the contents of [`supabase/learning_schema.sql`](supabase/learning_schema.sql) → **Run** (sector/role extensions, hacks, tags, frustrations, weekly check-ins, challenges, interactions, RLS, `get_recommended_hacks()`).
 4. **Optional**: at the bottom of [`supabase/learning_schema.sql`](supabase/learning_schema.sql), uncomment and run the **OPTIONAL SEED** block alone to insert sector + sample frustration tags (must align with curated content later).
+5. Paste [`supabase/ai_chat_schema.sql`](supabase/ai_chat_schema.sql) → **Run** (coach transcripts, **`profile_understanding`**, **`user_interests`**, **`tag_suggestions`**, extends **`tags.kind`** with **`capability`**, **`profiles.onboarded_at`**, updated **`get_recommended_hacks()`**). Uncomment the OPTIONAL SEED inside that file if you want starter **tool/capability** tags.
 
 [`supabase/future_schema.sql`](supabase/future_schema.sql) is a commented-only sketch for credits, reactions, follows, paths, career tables — **do not run** until you move those features out of sketch form.
 
@@ -85,6 +94,11 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) → **Sign in** → complete LinkedIn → you should land on **`/dashboard`** with your profile row.
 
+After **`OPENAI_API_KEY`** + **`ai_chat_schema.sql`** are in place:
+
+- **`/onboarding`** — conversational coach capturing sector, frustrations, and interests (`finish_onboarding` closes the loop).
+- **`/checkin`** — weekly rhythm using the same streaming endpoint (`?kind=checkin`).
+
 ## 6. Vercel deployment — checklist
 
 Follow in order:
@@ -98,6 +112,7 @@ Follow in order:
    |------|--------|
    | `NEXT_PUBLIC_SUPABASE_URL` | Same as `.env.local` |
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same as `.env.local` |
+   | `OPENAI_API_KEY` | Server-only coach key (**never** expose as `NEXT_PUBLIC_*`) |
 
 5. Trigger **Deploy** and wait until it succeeds. Copy your **Production URL**, e.g. `https://slimmerbezig.vercel.app`.
 6. **Supabase → Authentication → URL Configuration**  

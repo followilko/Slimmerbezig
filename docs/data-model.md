@@ -6,7 +6,7 @@ Schemas live as SQL-first sources of truth:
 |------|---------|
 | [supabase/schema.sql](../supabase/schema.sql) | Auth baseline: `profiles`, new-user trigger (run **first**) |
 | [supabase/learning_schema.sql](../supabase/learning_schema.sql) | Learning MVP tables, RLS, `get_recommended_hacks()` |
-| [supabase/future_schema.sql](../supabase/future_schema.sql) | Commented sketches — **do not run** until promoted |
+| [supabase/ai_chat_schema.sql](../supabase/ai_chat_schema.sql) | AI onboarding/check-in transcripts, **`profile_understanding`**, **`user_interests`**, **`tag_suggestions`**, **`tags.capability`**; replaces **`get_recommended_hacks`** to include interests |
 
 See also [decisions.md](decisions.md) for *why* (split files, ledger model, ESCO-ready tags).
 
@@ -54,6 +54,20 @@ erDiagram
 
 ---
 
+## AI coach & interests *(run [`ai_chat_schema.sql`](../supabase/ai_chat_schema.sql) after learning_schema)*
+
+| Entity / concept | Tables | Notes |
+|------------------|--------|-------|
+| Coach transcript | `chat_sessions`, `chat_messages` | `kind`: **onboarding** \| **checkin**; unique partial index: one **`open`** row per (`user_id`, `kind`). |
+| Rolling memory | `profile_understanding` | **summary** + **signals** json; read into system prompt each request. |
+| Interest weights | `user_interests` | `(user_id, tag_id)` PK; overlaps combined in **`get_recommended_hacks`**. |
+| Vocabulary intake | `tag_suggestions` | Learner / LLM proposals; curators reconcile into **`tags`**. |
+| Onboarding milestone | `profiles.onboarded_at` | Nullable timestamp written by **`finish_onboarding`** tool path. |
+
+`get_recommended_hacks()` is **`CREATE OR REPLACE`**’d here to UNION **`user_interests.tag_id`** into the overlap set.
+
+---
+
 ## Planned (B2B-MVP — schema deltas being scoped)
 
 These are **decided but not yet migrated**. They are tracked in [decisions.md](decisions.md) (B2B SaaS, post types, taxonomy, challenge answers, praise→points, external sources) and [roadmap.md](roadmap.md) (Next → Schema).
@@ -63,7 +77,7 @@ These are **decided but not yet migrated**. They are tracked in [decisions.md](d
 | Target | Change | Notes |
 |--------|--------|-------|
 | `profiles` | + `organization_id uuid references organizations(id)` | Tenant scope; required for B2B |
-| `tags` | extend `kind` check with `'capability'` | Adds AI-capability vocabulary alongside `tool` |
+| `tags` | extend `kind` check with **`'capability'`** (**done** in **`ai_chat_schema.sql`**) — seed actual capability rows separately |
 | `hacks` | + `post_type` enum `bite \| recipe \| guide \| external` | Effort/length classification |
 | `hacks` | + `goal` enum `automate \| analyse \| generate \| organise \| communicate \| learn \| decide` | Structured taxonomy slot |
 | `hacks` | extend `source` check with `'external'` | Plus required `source_url`, optional `external_author` (curator-only writes) |

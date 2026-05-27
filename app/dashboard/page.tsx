@@ -115,6 +115,20 @@ export default async function DashboardPage() {
           </dl>
         </CardContent>
         <CardFooter className="flex flex-wrap gap-3 justify-between border-t pt-6">
+          <div className="flex flex-wrap gap-2">
+            <Link
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+              href="/onboarding"
+            >
+              Guided onboarding
+            </Link>
+            <Link
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+              href="/checkin"
+            >
+              Weekly check-in
+            </Link>
+          </div>
           <Link
             className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             href="/"

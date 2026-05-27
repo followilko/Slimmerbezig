@@ -14,15 +14,15 @@ Quick orientation: visions and trade-offs live in [vision.md](vision.md) & [deci
 - **Future sketches** consolidated in **`future_schema.sql`** (comment-only)
 - Vercel production deploy **`slimmerbezig.vercel.app`** path validated in thread
 - **Project brain docs** (**`docs/`**) + expanded **`AGENTS.md`**
-
-## Next (implement now → B2B-MVP)
+- **AI coach MVP**: OpenAI **`gpt-4o-mini`** streaming via **`/api/onboarding/chat`**, **`/onboarding`** + **`/checkin`** UIs (**`AI SDK 6`** + **`@ai-sdk/react` `useChat`**), tooling to write frustrations/interests/`profile_understanding`, optional **`AI_CHAT_STUB_TOOLS`**
+- **`supabase/ai_chat_schema.sql`** (transcripts + interests + curator **`tag_suggestions`** queue + **`get_recommended_hacks`** union **`user_interests`**)
 
 ### Schema (new migration on top of `learning_schema.sql`)
 
 - **`organizations`** table + **`profiles.organization_id`** (multitenant); seat invites
 - **`hacks.post_type`** enum **`bite | recipe | guide | external`**
 - **`hacks.goal`** enum **`automate | analyse | generate | organise | communicate | learn | decide`**
-- **`tags.kind`** extend with **`capability`**; seed baseline tools + capabilities
+- **`tags.kind` `capability` + onboarding columns** (**`profiles.onboarded_at`**) — migrated in **`ai_chat_schema.sql`**; still need seed discipline + curator workflows
 - **`hacks.source`** extend with **`external`**; add **`source_url`**, **`external_author`**; curator-only RLS
 - Publish-time check: published hacks have **≥1 tool tag** and **≥1 capability tag**
 - Org-scoped RLS for hacks / challenges / feed visibility

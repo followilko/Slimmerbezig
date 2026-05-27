@@ -12,7 +12,11 @@ Canonical vocabulary — if you invent a synonym in UI copy or code comments, al
 | **Weekly check-in** | Periodic status note (**`weekly_checkins`**, one row per user per **`week_start`**) plus **`weekly_checkin_tags`** for “what consumed my week.” Feeds **`get_recommended_hacks`**. |
 | **Sector** | Coarse bucket on **`profiles.sector`** (**design/marketing/sales/finance/product/engineering/operations/hr/other**). Must align with **`tags`** where **`kind='sector'`** for slug-based matching. |
 | **Tag** | Controlled vocabulary atom in **`tags`**: **`kind ∈ {sector, topic, skill, tool, frustration, capability}`** (capability added with the structured taxonomy). Optional **`esco_uri`** for ontology mapping. |
-| **Recommendation** | Today: deterministic overlap of hack tags with the user’s sector tag + open frustration tags + check-in tags inside **`get_recommended_hacks`**, then filtered by visibility rules. Later: hybrid with embeddings + Goal × Tool × Capability filters. |
+| **Recommendation** | Today: deterministic overlap of hack tags with the user’s sector tag + open frustration tags + **`weekly_checkin_tags`** + **`user_interests`** overlap inside **`get_recommended_hacks`**, filtered by visibility rules. Later: hybrid with embeddings + Goal × Tool × Capability filters. |
+| **Profile understanding** | One row per user (**`profile_understanding`**) — rolling LLM-authored **summary** + **signals** JSON rehydrated into each coach session for continuity. |
+| **User interest** | **`user_interests`** links a user to **`tags`** with **`kind ∈ {tool, capability}`** and a **weight**; written by the AI coach (or future UI) to bias **`get_recommended_hacks`**. |
+| **Tag suggestion** | **`tag_suggestions`** queue for **new controlled-vocabulary labels** proposed by learners or the LLM; only **curator/admin** promotes rows into **`tags`**. |
+| **Chat session** | **`chat_sessions`** + **`chat_messages`** — coach transcripts; at most **one open** session per (`user_id`, **`kind`** = onboarding \| check-in). |
 
 ## Hack taxonomy
 
