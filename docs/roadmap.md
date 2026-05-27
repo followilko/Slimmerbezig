@@ -19,6 +19,7 @@ Quick orientation: visions and trade-offs live in [vision.md](vision.md) & [deci
 - **Track A — Onboarding v2**: 3-question cap, coverage-driven steering (`lib/ai/coverage.ts`), `CAPTURED_SO_FAR` / `STILL_NEEDED` in system prompt, server-side `finish_onboarding` / `finish_checkin` guard, auto-greet via seeded assistant message, `record_linkedin` tool + `profiles.linkedin_url` column (`supabase/03_onboarding_extras.sql`), `/for-you` placeholder feed with onboarding guard + redirect-on-finish
 - **Self-serve profile delete**: `delete_my_account()` RPC (`supabase/04_delete_account.sql`) + Dashboard two-step confirm + `deleteAccount` server action — full test reset without service role
 - **App shell + page structure** (ADRs 2026-05-27 — App shell route group, /for-you as landing, /dashboard retired, light-only theme, Explore tab): `app/(app)/layout.tsx` route group hosts every in-app page, sticky **`<AppHeader />`** ([components/shell/app-header.tsx](../components/shell/app-header.tsx)) with primary nav (**Suggested / Peers / Communities / Explore · Challenges**) + secondary menu (Create CTA, favorites + badge, creator-only points pill, avatar, hamburger via **`@base-ui/react/menu`**). AskBar restyled to the wireframe pill (icon-only Search/Ask toggle, circular submit). Theme forced to `light`. Stub pages scaffolded for `/office`, `/communities`, `/explore`, `/challenges`, `/saved`, `/messages`, `/learning-path`, `/become-a-creator`, `/hacks/new`. **`/dashboard`** is now a thin redirect to **`/profile`**; profile + settings split into [`app/(app)/profile/page.tsx`](../app/(app)/profile/page.tsx) and [`app/(app)/settings/page.tsx`](../app/(app)/settings/page.tsx). Proxy + landing redirect authed users to `/for-you`. Per-page **`requireOnboarded()`** ([lib/auth/onboarding.ts](../lib/auth/onboarding.ts)) gate; `/profile` + `/settings` deliberately exempt.
+- **Post card surface end-to-end** (ADR 2026-05-28 — Dummy posts seeded as curated hacks): wireframe-faithful **`<PostCard />`** ([`components/post/`](../components/post/)) — post-type + minutes pill, structured "how to [action] in [Tool]" title with [`<ToolIcon />`](../components/post/tool-icon.tsx) (`simple-icons` for figma/framer/notion/zoom/cursor/claude; custom path for photoshop), author block with `relativeTime`, social row, peer-completion footer, optimistic favorite heart. 10 curated rows seeded idempotently via [`supabase/08_seed_dummy_posts.sql`](../supabase/08_seed_dummy_posts.sql) with hardcoded UUIDs that mirror **`POST_META_BY_ID`** in [`lib/dummy/posts.ts`](../lib/dummy/posts.ts). `/for-you` reads `get_recommended_hacks` v2 with a recent-published fallback for users without sector overlap; `/saved` queries `hack_interactions`; `/hacks/[id]` merges DB + meta. Favorites write to `hack_interactions` (cookie store retired); header badge reads `getSavedCount(userId)` only. Search and Ask coach surface the seeded posts via existing `find_hacks`.
 
 ### Schema (new migration on top of `learning_schema.sql`)
 
@@ -38,7 +39,7 @@ Quick orientation: visions and trade-offs live in [vision.md](vision.md) & [deci
 
 Shell + stubs are scaffolded (see "Done"). Content for each surface still needs to land:
 
-- **`/for-you`** ("Suggested") — placeholder shipped Track A; richer cards in Track C. Shell-wrapped in `app/(app)/for-you/`.
+- **`/for-you`** ("Suggested") — shipped; renders `PostCard` grid from DB rows + TS metadata. Card metrics (likes/comments/points) remain TS-only until praise/points and comments schemas land.
 - **`/communities`** — sector / topic / tool clusters with hack lists. Shell-stubbed.
 - **`/office`** ("Peers") — same `organization_id` feed. Shell-stubbed; blocked on `organizations` migration.
 - **`/explore`** — cross-org / public hacks. Shell-stubbed; blocked on cross-org visibility schema + corpus.
@@ -47,7 +48,7 @@ Shell + stubs are scaffolded (see "Done"). Content for each surface still needs 
 - **`/hacks/[id]`** — markdown render + **save/helpful/completed/praise** CTAs
 - **`/hacks/new`** — creator-gated compose flow. Shell-stubbed; redirects non-creators to `/become-a-creator`.
 - **`/checkin`** — weekly body + tag multi-select (≤1 row per `(user_id, week_start)`)
-- **`/saved`** — favorites destination (`hack_interactions WHERE kind='saved'`). Shell-stubbed; full grid lands with Track C follow-ups.
+- **`/saved`** — shipped; DB-backed `PostCard` grid joined to `hack_interactions WHERE kind='saved'`.
 - **`/messages`**, **`/learning-path`** — hamburger destinations. Shell-stubbed.
 - **`/profile`** + **`/settings`** — replace the old `/dashboard`. Profile is read-only; settings hosts sign-out + delete account.
 - **`/admin/hacks`** — curator/admin authoring including **external** link curation queue
