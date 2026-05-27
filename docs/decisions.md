@@ -617,3 +617,19 @@ Neither calls `requireOnboarded()` — a brand-new user must be able to delete o
 **Alternatives:** Defer Explore until cross-org schema lands (forces a nav reshuffle later — five-tab muscle memory broken); fold Explore into Communities (conflates "topics I opted into" with "discover beyond my org"); call it "Public" (correct but less inviting copy).
 
 **Consequences:** [docs/glossary.md](glossary.md) adds an **Explore** entry. [docs/data-model.md](data-model.md) notes that the visibility filter on Explore depends on the same pending `organization_id` work as Office peers — the two feeds will gain real content as part of the same migration wave.
+
+---
+
+## 2026-05-27 — Ask coach pivots to `/challenges/new` on zero-result hacks; never off-platform
+
+**Context:** When the Ask coach's `find_hacks` tool returned zero rows, the model had no defined on-platform escape hatch. In testing it suggested off-platform search ("kijk op Twitter") — churn fuel that undermines the product loop. Challenges are already the designed answer to "no hack exists yet — ask peers" (`docs/vision.md` §Challenges; `challenges` + `challenge_tags` in `learning_schema.sql`).
+
+**Decision:**
+1. Add **`suggest_challenge`** to the Ask tool branch ([`lib/ai/tools.ts`](../lib/ai/tools.ts)) — **no DB write**. Returns `{ href: '/challenges/new?title=…&body=…&tag=…' }` so the user lands on a real form with pre-filled fields.
+2. Tighten ASK MODE in [`lib/ai/system-prompt.ts`](../lib/ai/system-prompt.ts): forbid off-platform alternatives; on second zero (or user decline) call `suggest_challenge` and narrate in one sentence.
+3. Render the tool output as a CTA card ([`suggest-challenge-renderer.tsx`](../components/feed/suggest-challenge-renderer.tsx)) wired into the Ask overlay's `toolRenderers`. The CTA runs a **GSAP exit** (fade + slide down) on the overlay before `router.push` so the destination page is not hidden behind the modal ([`ask-overlay.tsx`](../components/feed/ask-overlay.tsx) + `AskNavigateProvider` in the renderer).
+4. Ship partial **`/challenges`** MVP: list (mine + open peers), `/challenges/new` form + `createChallenge` Server Action, `/challenges/[id]` read-only detail. Replies (`challenge_comments`) deferred.
+
+**Alternatives:** Auto-insert challenge with undo (risky — posts without explicit consent); pure-prose link in assistant text (no clickable card, model might still drift off-platform); coach creates the row directly via a `create_challenge` tool (skips edit-before-post).
+
+**Consequences:** Challenge writes stay user-consented via the form. The coach has a clean, on-platform loop when the corpus is thin. `/challenges` is no longer an EmptyState stub — but comments/praise/org-scoping remain in the B2B-MVP migration wave.

@@ -363,6 +363,48 @@ function askExclusive(ctx: ToolsContext) {
         }
       },
     }),
+
+    suggest_challenge: tool({
+      description:
+        "Call when find_hacks returned zero results (including after one broadened retry) or the user wants help but no platform hack exists. Does NOT insert a challenge — returns a deep-link to /challenges/new so the user can review and submit the form themselves. Never suggest Twitter, Google, or other off-platform search.",
+      inputSchema: zodSchema(
+        z.object({
+          suggestedTitle: z.string().min(3).max(120),
+          suggestedBody: z.string().max(2000).optional(),
+          tagSlugs: z.array(z.string()).max(8).optional().default([]),
+        })
+      ),
+      execute: async ({ suggestedTitle, suggestedBody, tagSlugs }) => {
+        const params = new URLSearchParams()
+        params.set("title", suggestedTitle.trim())
+        if (suggestedBody?.trim()) {
+          params.set("body", suggestedBody.trim())
+        }
+        if (tagSlugs.length) {
+          params.set("tag", tagSlugs.join(","))
+        }
+        const href = `/challenges/new?${params.toString()}`
+
+        if (stub) {
+          console.log("[AI stub] suggest_challenge", suggestedTitle, href)
+          return {
+            stub: true,
+            suggestedTitle,
+            suggestedBody: suggestedBody ?? null,
+            tagSlugs,
+            href,
+          }
+        }
+
+        return {
+          ok: true as const,
+          suggestedTitle: suggestedTitle.trim(),
+          suggestedBody: suggestedBody?.trim() ?? null,
+          tagSlugs,
+          href,
+        }
+      },
+    }),
   }
 }
 

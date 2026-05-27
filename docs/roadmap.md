@@ -42,7 +42,7 @@ Shell + stubs are scaffolded (see "Done"). Content for each surface still needs 
 - **`/communities`** — sector / topic / tool clusters with hack lists. Shell-stubbed.
 - **`/office`** ("Peers") — same `organization_id` feed. Shell-stubbed; blocked on `organizations` migration.
 - **`/explore`** — cross-org / public hacks. Shell-stubbed; blocked on cross-org visibility schema + corpus.
-- **`/challenges`** — list + detail; post comment, attach hack, self-promote with disclosure. Shell-stubbed.
+- **`/challenges`** — **partial MVP shipped:** list (mine + open peers), [`/challenges/new`](../app/(app)/challenges/new/page.tsx) create form, [`/challenges/[id]`](../app/(app)/challenges/[id]/page.tsx) detail. Ask coach deep-links here via `suggest_challenge` when `find_hacks` returns zero. Comments, hack-links, and praise still pending B2B-MVP migration.
 - **`/onboarding`** — 3-question coach: Identity / Friction / Toolkit (coverage-driven, ADR 2026-05-27)
 - **`/hacks/[id]`** — markdown render + **save/helpful/completed/praise** CTAs
 - **`/hacks/new`** — creator-gated compose flow. Shell-stubbed; redirects non-creators to `/become-a-creator`.
@@ -60,6 +60,7 @@ Shell + stubs are scaffolded (see "Done"). Content for each surface still needs 
 - **B3 — Shipped:** `chat_sessions.kind = 'ask'` rolling session ([`supabase/07_ask_session.sql`](../supabase/07_ask_session.sql)) — one open row per user, never closes. Existing partial-unique index enforces "one open per kind"; transcript trimmed to last 100 messages in the route (ADR 2026-05-27 — Ask is a rolling, never-closing chat session).
 - **B4 — Shipped:** [`app/api/ask/chat/route.ts`](../app/api/ask/chat/route.ts) + new `find_hacks` AI tool branch in [`lib/ai/tools.ts`](../lib/ai/tools.ts); ASK MODE section in [`lib/ai/system-prompt.ts`](../lib/ai/system-prompt.ts).
 - **B5 — Shipped:** Ask overlay ([`components/feed/ask-overlay.tsx`](../components/feed/ask-overlay.tsx)) hosts the existing `<CoachChat>` with `find_hacks` results rendered as cards via [`find-hacks-renderer.tsx`](../components/feed/find-hacks-renderer.tsx) — `<CoachChat>` now accepts `autoSendUserText` + `toolRenderers` + `hideSidebar` + `compact` props.
+- **B6 — Shipped:** Zero-result Ask pivot to Challenges — `suggest_challenge` tool (no DB write; deep-link to `/challenges/new`) + [`suggest-challenge-renderer.tsx`](../components/feed/suggest-challenge-renderer.tsx). ASK MODE prompt forbids off-platform redirects (Twitter, Google, etc.). CTA click GSAP-exits the Ask overlay before navigation. Partial `/challenges` MVP: list, create, detail (comments deferred).
 
 ### Track C — Implicit signals
 
