@@ -13,7 +13,13 @@ Product / architecture / vocabulary: **[docs/](docs/)** (always keep these in sy
 - **Tailwind CSS** + **shadcn/ui**
 - **Supabase** Postgres + Auth (LinkedIn OIDC) via **`@supabase/ssr`**
 - **Vercel** deploy from **GitHub `main`**
-- Env: **[lib/env.ts](lib/env.ts)** (Zod-validated `NEXT_PUBLIC_*`)
+- Env: **[lib/env.ts](lib/env.ts)** (Zod-validated `NEXT_PUBLIC_*`), plus **`lib/env.server.ts`** for **`OPENAI_API_KEY`** / coach flags (never import server env from clients).
+
+## Animation stack
+
+Front-end motion is centred on **`gsap`** (+ **`ScrollTrigger`**, **`CustomEase`**) and **`lenis`** (smooth scroll), installed from npm — registered once via **[lib/anim/registerGsap.ts](lib/anim/registerGsap.ts)**, Lenis bridged to the GSAP ticker in **[components/anim/SmoothScrollProvider.tsx](components/anim/SmoothScrollProvider.tsx)**, and lightweight route enter motion in **`app/template.tsx`** (prefer this over SPA-style routers that bypass Next).
+
+**Working rule:** before adding other animation libraries — or implementing page transitions, scroll-linked effects, or hover/state motion — **check whether GSAP first** (often with ScrollTrigger / CustomEase). Use **Lenis** for smooth scrolling and keep `ScrollTrigger.refresh()` in mind after layout-altering navigation (handled in `template`). **`@barba/core` is not used** — it conflicts with the App Router, `proxy.ts`, and Server Actions.
 
 ## First-read order (new session)
 

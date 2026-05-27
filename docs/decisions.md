@@ -252,3 +252,75 @@ A user **may promote their own hack** as a solution explicitly (UI affordance; d
 **Alternatives:** Disallow external; or let any creator post links (spam risk).
 
 **Consequences:** Curation backlog grows but feed quality stays controllable. Need RLS update + URL-validation constraint + a small "Submit a link for curation" intake (later) so non-curators can suggest without bypassing the gate.
+
+---
+
+## 2026-05-27 — LLM coach via OpenAI + Vercel AI SDK
+
+**Context:** Onboarding/check-ins produce rich natural language — we still need deterministic rows for **`get_recommended_hacks`**, explainability, and GDPR-friendly minimization.
+
+**Decision:** **`streamText`** on **`gpt-4o-mini`** (`@ai-sdk/openai`), Next.js **`app/api/onboarding/chat/route.ts`** returning **`toUIMessageStreamResponse`**, **`@ai-sdk/react` `useChat` + `DefaultChatTransport`** for streaming UI.
+
+**Alternatives:** Call OpenAI REST only; Claude-only stack; bespoke SSE.
+
+**Consequences:** Model swap stays an import swap; **`convertToModelMessages` is awaited (AI SDK 6)**. Missing **`OPENAI_API_KEY`** returns **503** so builds/deploys without secrets still compile.
+
+---
+
+## 2026-05-27 — Hybrid conversational onboarding/check-in + tool writes
+
+**Context:** UX must feel like a coherent chat yet feed logic needs structured slots.
+
+**Decision:** Hybrid flow — conversational steering with **explicit tools** (**`set_sector`**, **`add_frustration`**, **`add_interest`**, **`update_understanding`**, **`save_weekly_checkin`**, completions, curator queue) instead of unstructured post-hoc scraping.
+
+**Alternatives:** Pure multi-step wizard; unstructured summarization blobs only.
+
+**Consequences:** Token/tool discipline + schema alignment; curator queue handles unknown tools/tags.
+
+---
+
+## 2026-05-27 — `profile_understanding` + transcripts + stub mode
+
+**Context:** Returning users deserve continuity across sessions without re-reading whole history each call.
+
+**Decision:** Persist **`profile_understanding.summary`** + **`signals` json** (user-owned, RLS) and **`chat_messages`** JSON payloads per assistant turn plus optional **`AI_CHAT_STUB_TOOLS=true`** dry-run (`lib/env.server.ts`).
+
+**Alternatives:** Only embed vectors; ephemeral session memory.
+
+**Consequences:** Narrative coherence + observability + safe local demos before SQL migrations run.
+
+---
+
+## 2026-05-27 — `tag_suggestions` gate for learner/LLM vocabulary
+
+**Context:** Controlled **`tags`** must not sprawl arbitrarily (spam + matching drift).
+
+**Decision:** **`tag_suggestions`** queue with learner insert + curator/admin approvals; **`propose_tag` tool writes here only**.
+
+**Alternatives:** Let creators insert tags freely; unstructured free tags per user.
+
+**Consequences:** Human approval latency but stable taxonomy hygiene.
+
+---
+
+## 2026-05-27 — Standard animation stack: GSAP + ScrollTrigger + CustomEase + Lenis (npm)
+
+**Context:** The product relies on deliberate micro-interactions — page feel, scroll-linked motion, easing control — without fighting the Next.js router or auth proxy.
+
+**Decision:** Ship **`gsap`** (MIT; includes **ScrollTrigger** and **CustomEase** as separate plugin imports), **`lenis`** for smooth scrolling, `@/` integration with a single **`registerGsap()`** helper, **`SmoothScrollProvider`** (Lenis **`autoRaf: false`** + **`gsap.ticker`** drives **`lenis.raf`**, **`ScrollTrigger.update`** on Lenis **`scroll`**), **`prefers-reduced-motion`** turns off Lenis **`smoothWheel`**, **`app/template.tsx`** runs a minimal GSAP route-enter tween and calls **`ScrollTrigger.refresh()`** on complete.
+
+**Alternatives:** Raw CSS-only motion; CDN `<script>` tags; **Barba.js** or other full-page AJAX routers.
+
+**Consequences:** One idiomatic toolkit for agents to reach for first (`AGENTS.md` “Animation stack”); tree-shakable npm imports; SSR stays server-first — animations are client-mounted only.
+
+---
+
+## 2026-05-27 — No Barba — page transitions via `app/template.tsx` + GSAP
+
+**Context:** **Barba** intercepts navigations and swaps DOM islands; **Next.js 16 App Router** owns routing, RSC boundaries, prefetch, **`proxy.ts`** session refresh redirects, and **Server Actions** (e.g. sign-out).
+
+**Decision:** Do **not** integrate `@barba/core`. Prefer **route `template.tsx` remounts** + GSAP for enter animations and Lenis/ScrollTrigger hygiene.
+
+**Alternatives:** Barba + fight the framework; View Transitions API only.
+
+**Consequences:** Predictable auth and data loading; “Barba-like” page-in is approximated with `template`, not a second router.
