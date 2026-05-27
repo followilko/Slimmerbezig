@@ -62,6 +62,7 @@ Shell + stubs are scaffolded (see "Done"). Content for each surface still needs 
 - **B4 — Shipped:** [`app/api/ask/chat/route.ts`](../app/api/ask/chat/route.ts) + new `find_hacks` AI tool branch in [`lib/ai/tools.ts`](../lib/ai/tools.ts); ASK MODE section in [`lib/ai/system-prompt.ts`](../lib/ai/system-prompt.ts).
 - **B5 — Shipped:** Ask overlay ([`components/feed/ask-overlay.tsx`](../components/feed/ask-overlay.tsx)) hosts the existing `<CoachChat>` with `find_hacks` results rendered as cards via [`find-hacks-renderer.tsx`](../components/feed/find-hacks-renderer.tsx) — `<CoachChat>` now accepts `autoSendUserText` + `toolRenderers` + `hideSidebar` + `compact` props.
 - **B6 — Shipped:** Zero-result Ask pivot to Challenges — `suggest_challenge` tool (no DB write; deep-link to `/challenges/new`) + [`suggest-challenge-renderer.tsx`](../components/feed/suggest-challenge-renderer.tsx). ASK MODE prompt forbids off-platform redirects (Twitter, Google, etc.). CTA click GSAP-exits the Ask overlay before navigation. Partial `/challenges` MVP: list, create, detail (comments deferred).
+- **B7 — Shipped:** `find_hacks` v2 ([`supabase/09_find_hacks_v2.sql`](../supabase/09_find_hacks_v2.sql)) — tier-1 tag-overlap + tier-2 strict FTS + tier-3 gated OR fallback; recent-published only for empty / all-stop-word queries. Ask prompt: filler-word hygiene, immediate auto-retry on zero, narrow when `hacks.length >= 8`. Renderer caps visible cards at 5 with "+ N meer" footer. See ADR 2026-05-28 — `find_hacks` v2.
 
 ### Track C — Implicit signals
 

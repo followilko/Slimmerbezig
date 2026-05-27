@@ -328,11 +328,11 @@ function askExclusive(ctx: ToolsContext) {
   return {
     find_hacks: tool({
       description:
-        "Call when the user asks how-to questions, looks for inspiration, or otherwise wants concrete hacks from the platform. Runs Postgres FTS via public.find_hacks. Returns up to `limit` published hacks with id/title/summary/source so you can reference them in your reply. The UI also renders these as clickable cards — your reply should narrate (e.g. 'Ik vond 3 ideeën voor je…') rather than dump titles.",
+        "Call when the user asks how-to questions, looks for inspiration, or otherwise wants concrete hacks from the platform. Runs public.find_hacks (tag-overlap + FTS + OR fallback). Pass concrete nouns only — drop filler words like tips/tricks/hacks/help. Include VOCAB tool/sector slugs verbatim when the user names them. Returns up to `limit` published hacks with id/title/summary/source; use hacks.length >= 8 as the signal to ask a narrowing question. The UI renders clickable cards (capped at 5 visible) — narrate briefly rather than dump titles.",
       inputSchema: zodSchema(
         z.object({
           query: z.string().min(1).max(500),
-          limit: z.number().int().min(1).max(10).optional().default(5),
+          limit: z.number().int().min(1).max(10).optional().default(10),
         })
       ),
       execute: async ({ query, limit }) => {

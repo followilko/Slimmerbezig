@@ -39,9 +39,11 @@ export function renderFindHacksOutput(output: unknown) {
       </div>
     )
   }
+  const visible = hacks.slice(0, 5)
+  const hiddenCount = hacks.length - visible.length
   return (
     <div className="mt-2 grid gap-2">
-      {hacks.map((h) => (
+      {visible.map((h) => (
         <Link
           key={h.id}
           href={`/hacks/${h.id}`}
@@ -60,6 +62,11 @@ export function renderFindHacksOutput(output: unknown) {
           ) : null}
         </Link>
       ))}
+      {hiddenCount > 0 ? (
+        <p className="px-1 text-xs text-muted-foreground">
+          + {hiddenCount} meer — verfijn je vraag voor minder ruis
+        </p>
+      ) : null}
     </div>
   )
 }

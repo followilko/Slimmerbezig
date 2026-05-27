@@ -673,3 +673,25 @@ Neither calls `requireOnboarded()` — a brand-new user must be able to delete o
 **Alternatives:** Land the full `hacks` migration first (blocks the sprint); generate UUIDs at SQL run time (loses the SQL ↔ TS mirror); keep the cookie store as a guest-mode affordance (unnecessary — every authenticated route now writes to DB).
 
 **Consequences:** End-to-end is real: heart on the card persists in DB, the header badge reads from `hack_interactions`, `/saved` lists what you saved across sessions, and AskBar Search / Ask coach both surface the seeded posts via `find_hacks`. The hardcoded UUID convention establishes a pattern other curated content can follow until the rename migration. New non-design/ops/eng users see a thinner feed until their sectors are populated — the fallback is the cheap insurance policy. Legacy [`components/feed/hack-card-actions.tsx`](../components/feed/hack-card-actions.tsx) is still in the tree as an unmigrated surface.
+
+---
+
+## 2026-05-28 — `find_hacks` v2: tag-overlap + OR-fallback + LLM narrowing on abundance
+
+**Context:** Ask mode failed on natural-language queries like *"ik heb photoshop ai tips nodig"* even though searching `photoshop` in the Search tab worked. Root cause: v1 `find_hacks` passed the LLM's full phrase to `websearch_to_tsquery`, which ANDs every token (`photoshop & ai & tips`). The word "tips" appears in zero hacks, so the match returned empty and the coach jumped to `suggest_challenge`. Tag links on `hack_tags` — the strongest signal for tool/sector queries — were never consulted.
+
+**Decision:**
+1. **`CREATE OR REPLACE public.find_hacks(text, int)`** in [`supabase/09_find_hacks_v2.sql`](../supabase/09_find_hacks_v2.sql) — same signature, three tiers:
+   - **Tier 1:** query tokens ∩ `tags.slug` where `kind ∈ {tool, sector, capability, topic}` → hacks via `hack_tags`, scored with `0.8 × overlap_count`.
+   - **Tier 2:** strict FTS via `websearch_to_tsquery('simple', …)` (v1 behaviour).
+   - **Tier 3:** gated OR fallback — only when tiers 1+2 are empty; inline stop-word strip + sanitised `to_tsquery('simple', token1 | token2)`.
+   - **Recent-published fallback:** empty query (search bar cleared) OR all-stop-word query (e.g. "hacks"); substantive no-match queries return an empty set so the coach can auto-retry → `suggest_challenge`.
+2. **Ask prompt hygiene** ([`lib/ai/system-prompt.ts`](../lib/ai/system-prompt.ts)): drop filler words before calling `find_hacks`; include VOCAB slugs verbatim; immediate auto-retry on zero (same response, no user back-and-forth); ask one narrowing question when `hacks.length >= 8`.
+3. **Tool default `p_limit` 5 → 10** in [`lib/ai/tools.ts`](../lib/ai/tools.ts) — no RPC shape change; `/api/search` stays `{ hacks: HackRow[] }`.
+4. **Renderer cap at 5 visible cards** + "+ N meer — verfijn je vraag voor minder ruis" footer in [`components/feed/find-hacks-renderer.tsx`](../components/feed/find-hacks-renderer.tsx).
+
+**Partially supersedes:** "2026-05-27 — Postgres FTS for hack search (`find_hacks`); pgvector deferred" — the `search_tsv` column and GIN index survive; only the function body changed.
+
+**Alternatives:** `pg_trgm` typo tolerance (defer — corpus too small); `pgvector` embeddings (defer); `find_hacks_count` second RPC (unnecessary — `hacks.length` is enough); promote stop-words to a table now (defer until list grows past ~30).
+
+**Consequences:** Natural-language Ask queries like *"photoshop ai tips"* resolve via tier-1 tag-overlap regardless of filler words. Search and Ask share the same RPC — both improve together. Stop-word list is inline in the function; promote to `public.search_stopwords` when it grows. Model upgrade (`gpt-4o-mini` → newer) remains a separate decision.
