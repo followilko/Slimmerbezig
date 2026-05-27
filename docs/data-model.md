@@ -7,6 +7,10 @@ Schemas live as SQL-first sources of truth:
 | [supabase/schema.sql](../supabase/schema.sql) | Auth baseline: `profiles`, new-user trigger (run **first**) |
 | [supabase/learning_schema.sql](../supabase/learning_schema.sql) | Learning MVP tables, RLS, `get_recommended_hacks()` |
 | [supabase/ai_chat_schema.sql](../supabase/ai_chat_schema.sql) | AI onboarding/check-in transcripts, **`profile_understanding`**, **`user_interests`**, **`tag_suggestions`**, **`tags.capability`**; replaces **`get_recommended_hacks`** to include interests |
+| [supabase/03_onboarding_extras.sql](../supabase/03_onboarding_extras.sql) | Adds **`profiles.linkedin_url`** captured by the AI coach (`record_linkedin` tool) |
+| [supabase/05_recommendation_v2.sql](../supabase/05_recommendation_v2.sql) | **`get_recommended_hacks` v2**: tag overlap + helpful boost (+2) + viewed/completed decay (−0.5 / −1.0); excludes `not_helpful` |
+| [supabase/06_hack_search.sql](../supabase/06_hack_search.sql) | **`hacks.search_tsv`** generated column (weighted: title=A, summary=B, body_md=C) + GIN index + **`find_hacks(query, limit)`** RPC for Postgres FTS |
+| [supabase/07_ask_session.sql](../supabase/07_ask_session.sql) | Extends **`chat_sessions_kind_check`** to allow `'ask'` — backs the rolling, never-closing Ask chat session (ADR 2026-05-27 — Ask is a rolling, never-closing chat session) |
 | [supabase/04_delete_account.sql](../supabase/04_delete_account.sql) | Self-serve testing reset: **`delete_my_account()`** — deletes **`auth.users`** for the caller; cascades **`profiles`** and user-owned rows (see ADR 2026-05-27) |
 
 See also [decisions.md](decisions.md) for *why* (split files, ledger model, ESCO-ready tags).
@@ -44,8 +48,8 @@ erDiagram
 | Problem statements during onboarding etc. | `user_frustrations` (+ `user_frustration_tags`) | §4 |
 | Weekly snapshots | `weekly_checkins` (+ `weekly_checkin_tags`) | §5 |
 | “Help me with X” quests | `challenges` (+ `challenge_tags`) | §6 |
-| User ↔ hack signals | `hack_interactions` | §7 |
-| Tag-overlap recommendation | `get_recommended_hacks(p_limit int)` SECURITY INVOKER | Bottom of file (~L546+); policies start at §“8. Row Level Security”. |
+| User ↔ hack signals | `hack_interactions` (kind: saved / viewed / completed / helpful / not_helpful) | §7. Drives v2 recommendation rank (see `supabase/05_recommendation_v2.sql`) and `/for-you` thumbs/save UI ([`components/feed/hack-card-actions.tsx`](../components/feed/hack-card-actions.tsx) + [`app/for-you/actions.ts`](../app/for-you/actions.ts)). |
+| Tag-overlap recommendation | `get_recommended_hacks(p_limit int)` SECURITY INVOKER | Originally defined in `learning_schema.sql`, REPLACEd in `ai_chat_schema.sql` (adds `user_interests` overlap), REPLACEd again in `05_recommendation_v2.sql` (adds implicit-signal scoring). |
 
 ### Row Level Security (plain English)
 
@@ -61,11 +65,15 @@ erDiagram
 
 | Entity / concept | Tables | Notes |
 |------------------|--------|-------|
-| Coach transcript | `chat_sessions`, `chat_messages` | `kind`: **onboarding** \| **checkin**; unique partial index: one **`open`** row per (`user_id`, `kind`). |
+| Coach transcript | `chat_sessions`, `chat_messages` | `kind`: **onboarding** \| **checkin** \| **ask**; unique partial index: one **`open`** row per (`user_id`, `kind`). `ask` rows intentionally never transition to `completed`. |
 | Rolling memory | `profile_understanding` | **summary** + **signals** json; read into system prompt each request. |
 | Interest weights | `user_interests` | `(user_id, tag_id)` PK; overlaps combined in **`get_recommended_hacks`**. |
 | Vocabulary intake | `tag_suggestions` | Learner / LLM proposals; curators reconcile into **`tags`**. |
 | Onboarding milestone | `profiles.onboarded_at` | Nullable timestamp written by **`finish_onboarding`** tool path. |
+| LinkedIn URL | `profiles.linkedin_url` | Normalized `https://www.linkedin.com/in/<vanity>/` from `record_linkedin` tool. Server-validated by [`lib/ai/linkedin.ts`](../lib/ai/linkedin.ts). Phase 2 will fetch the profile via Proxycurl when `PROXYCURL_API_KEY` is set. |
+| Coverage helper | [`lib/ai/coverage.ts`](../lib/ai/coverage.ts) | Counts `sector`, `linkedin_url`, open frustrations, tool/capability interests (matched + proposed), and current-week check-in. Renders `CAPTURED_SO_FAR` / `AIM_FOR` blocks in the system prompt for onboarding / checkin only — **steering hints only, no hard gate** (ADR 2026-05-27 — Soft coverage hints). |
+| Recent feedback digest | [`lib/ai/recent-feedback.ts`](../lib/ai/recent-feedback.ts) | Two-query helper that resolves last-14d `helpful` / `not_helpful` interactions to tag slugs + counts a 14d save streak. Rendered as `RECENT_FEEDBACK` only for `kind: 'ask'` (ADR 2026-05-27 — Ask system prompt carries last-14d feedback digest). |
+| Hack view tracker | [`components/feed/hack-view-tracker.tsx`](../components/feed/hack-view-tracker.tsx) + `recordView` in [`app/for-you/actions.ts`](../app/for-you/actions.ts) | IntersectionObserver fires after ≥2s of card-in-viewport, inserting `hack_interactions(kind='viewed')`. PK conflict (`23505`) is treated as success — idempotent across renders (ADR 2026-05-27 — Auto-`viewed` via IntersectionObserver). |
 
 `get_recommended_hacks()` is **`CREATE OR REPLACE`**’d here to UNION **`user_interests.tag_id`** into the overlap set.
 

@@ -1,4 +1,4 @@
-export type ChatKind = "onboarding" | "checkin"
+export type ChatKind = "onboarding" | "checkin" | "ask"
 
 /** Must match `profiles_sector_check` in learning_schema. */
 export const SECTOR_SLUGS = [

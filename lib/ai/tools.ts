@@ -7,6 +7,7 @@ import { envServer } from "@/lib/env.server"
 import type { ChatKind } from "./types"
 import { SECTOR_SLUGS } from "./types"
 import { currentWeekStartUtc } from "./week"
+import { validateLinkedinUrl } from "./linkedin"
 
 export type ToolsContext = {
   supabase: SupabaseClient
@@ -50,7 +51,7 @@ function sharedTools(ctx: ToolsContext) {
   return {
     set_sector: tool({
       description:
-        "Record the learner's primary sector slug (exactly matching VOCAB_JSON.sector).",
+        "Call when the user has clearly named their primary work field. Records sectorSlug on profiles.sector. Must be one of VOCAB_JSON.sector.",
       inputSchema: zodSchema(
         z.object({
           sectorSlug: z.string().refine(
@@ -74,9 +75,46 @@ function sharedTools(ctx: ToolsContext) {
       },
     }),
 
+    record_linkedin: tool({
+      description:
+        "Call when the user shares a LinkedIn profile URL (and optionally pastes their headline / about text). Validates URL shape, normalizes it, writes profiles.linkedin_url and (if provided) profiles.headline. Returns the parsed vanity slug for echo-back confirmation. Do NOT invent the URL — only call when the user actually shared one.",
+      inputSchema: zodSchema(
+        z.object({
+          url: z.string().min(4).max(400),
+          headlineText: z.string().max(280).optional(),
+          aboutText: z.string().max(2000).optional(),
+        })
+      ),
+      execute: async ({ url, headlineText }) => {
+        const parsed = validateLinkedinUrl(url)
+        if (!parsed.ok) {
+          return { ok: false as const, reason: parsed.reason }
+        }
+        if (stub) {
+          console.log("[AI stub] record_linkedin", parsed.normalized, headlineText)
+          return { stub: true, ...parsed }
+        }
+        const patch: Record<string, unknown> = { linkedin_url: parsed.normalized }
+        if (headlineText && headlineText.trim()) {
+          patch.headline = headlineText.trim()
+        }
+        const { error } = await ctx.supabase
+          .from("profiles")
+          .update(patch)
+          .eq("id", ctx.userId)
+        if (error) throw new Error(error.message)
+        return {
+          ok: true as const,
+          normalized: parsed.normalized,
+          vanity: parsed.vanity,
+          storedHeadline: Boolean(patch.headline),
+        }
+      },
+    }),
+
     add_frustration: tool({
       description:
-        "Persist a concise frustration narrative plus curated tag slugs (frustration/topic/tool/capability/sector refs from VOCAB_JSON). Ignore unknown slugs.",
+        "Call when the user describes a workplace task / pain that they'd like to solve or speed up. Inserts a user_frustrations row + optional tag links. Body is the user's own words trimmed to ≤200 chars where possible. Ignore tagSlugs that aren't in VOCAB_JSON; use propose_tag for missing concepts.",
       inputSchema: zodSchema(
         z.object({
           body: z.string().min(1).max(2000),
@@ -99,7 +137,9 @@ function sharedTools(ctx: ToolsContext) {
         const map = await fetchTagsBySlug(ctx.supabase, tagSlugs)
         const junction = tagSlugs
           .map((slug) =>
-            map.has(slug) ? { frustration_id: fId, tag_id: map.get(slug)!.id } : null
+            map.has(slug)
+              ? { frustration_id: fId, tag_id: map.get(slug)!.id }
+              : null
           )
           .filter(Boolean) as { frustration_id: string; tag_id: string }[]
 
@@ -111,13 +151,18 @@ function sharedTools(ctx: ToolsContext) {
         }
 
         const missing = tagSlugs.filter((s) => !map.has(s))
-        return { ok: true as const, frustrationId: fId, linked: junction.length, missingSlugs: missing }
+        return {
+          ok: true as const,
+          frustrationId: fId,
+          linked: junction.length,
+          missingSlugs: missing,
+        }
       },
     }),
 
     add_interest: tool({
       description:
-        "Weight tool or capability tag intersections for recommendations. Tag slugs must exist in VOCAB_JSON.tool / VOCAB_JSON.capability.",
+        "Call when the user names a tool or AI capability they use / want. Upserts user_interests for any slugs that exist in VOCAB_JSON.tool / VOCAB_JSON.capability. Unmatched slugs are reported back in `unmatched` — for those, call propose_tag ONCE and move on (do not retry add_interest with the same unknown slug).",
       inputSchema: zodSchema(
         z.object({
           tagSlugs: z.array(z.string()).max(24),
@@ -132,35 +177,47 @@ function sharedTools(ctx: ToolsContext) {
         }
 
         const map = await fetchTagsBySlug(ctx.supabase, tagSlugs)
-        const rows = tagSlugs
-          .map((slug) => {
-            const t = map.get(slug)
-            if (!t) return null
-            if (t.kind !== "tool" && t.kind !== "capability") return null
-            return {
-              user_id: ctx.userId,
-              tag_id: t.id,
-              weight,
-              source: sourceHint ?? "ai_chat",
-            }
+        const matched: string[] = []
+        const unmatched: string[] = []
+        const rows: Record<string, unknown>[] = []
+        for (const slug of tagSlugs) {
+          const t = map.get(slug)
+          if (!t || (t.kind !== "tool" && t.kind !== "capability")) {
+            unmatched.push(slug)
+            continue
+          }
+          matched.push(slug)
+          rows.push({
+            user_id: ctx.userId,
+            tag_id: t.id,
+            weight,
+            source: sourceHint ?? "ai_chat",
           })
-          .filter(Boolean) as Record<string, unknown>[]
-
-        if (!rows.length) {
-          return { ok: false as const, reason: "no_valid_tool_capability_slugs" }
         }
 
-        const { error } = await ctx.supabase.from("user_interests").upsert(rows, {
-          onConflict: "user_id,tag_id",
-        })
-        if (error) throw new Error(error.message)
-        return { ok: true as const, upserts: rows.length }
+        if (rows.length) {
+          const { error } = await ctx.supabase
+            .from("user_interests")
+            .upsert(rows, { onConflict: "user_id,tag_id" })
+          if (error) throw new Error(error.message)
+        }
+
+        return {
+          ok: true as const,
+          upserts: rows.length,
+          matched,
+          unmatched,
+          hint:
+            unmatched.length > 0
+              ? "Unmatched slugs are new vocabulary — call propose_tag for each you want curated, then move on. Do NOT call add_interest again with these slugs."
+              : undefined,
+        }
       },
     }),
 
     update_understanding: tool({
       description:
-        'Rolling factual summary stored server-side — keep ≤6 sentences plus optional JSON signals (e.g. {"tools":["notion"],"frustrations":["meetings overload"]}).',
+        "Call after each meaningful turn to refresh the rolling summary on profile_understanding. Summary ≤6 sentences, factual, no marketing fluff. Optional signals JSON (keys: sector_estimate, frustrations, tools, ai_capabilities, role_hint).",
       inputSchema: zodSchema(
         z.object({
           summary: z.string().min(1).max(4000),
@@ -187,7 +244,7 @@ function sharedTools(ctx: ToolsContext) {
 
     propose_tag: tool({
       description:
-        "Queue curator review for a slug not listed in VOCAB_JSON. Normalize slug snake_case lowercase.",
+        "Call when the user mentions a tool / capability / topic that isn't in VOCAB_JSON. Normalizes slug to lower_snake_case and queues a tag_suggestions row for curator review.",
       inputSchema: zodSchema(
         z.object({
           slugGuess: z.string().min(2).max(80),
@@ -217,7 +274,7 @@ function sharedTools(ctx: ToolsContext) {
           notes: reason ?? null,
         })
         if (error) throw new Error(error.message)
-        return { ok: true as const }
+        return { ok: true as const, normalized }
       },
     }),
   }
@@ -228,8 +285,10 @@ function onboardingExclusive(ctx: ToolsContext) {
   return {
     finish_onboarding: tool({
       description:
-        "Call once sector, frustrations (1–3), mixed interests tags, and summary are confidently captured.",
-      inputSchema: zodSchema(z.object({ acknowledged: z.boolean().optional() })),
+        "Call to wrap up the conversation. ALWAYS succeeds — your judgement is the gate, not a server-side check. Marks profiles.onboarded_at and closes the chat session. The client auto-redirects the user to /for-you next.",
+      inputSchema: zodSchema(
+        z.object({ acknowledged: z.boolean().optional() })
+      ),
       execute: async () => {
         if (stub) {
           console.log("[AI stub] finish_onboarding")
@@ -240,17 +299,19 @@ function onboardingExclusive(ctx: ToolsContext) {
 
         const { error: profErr } = await ctx.supabase
           .from("profiles")
-          .update({
-            onboarded_at: new Date().toISOString(),
-          })
+          .update({ onboarded_at: new Date().toISOString() })
           .eq("id", ctx.userId)
-        // onboarded_at column optional before migration — ignore if fails
-        if (profErr) console.warn("[finish_onboarding] profile update:", profErr.message)
+        if (profErr) {
+          console.warn("[finish_onboarding] profile update:", profErr.message)
+        }
 
         if (sessionId) {
           const { error: sesErr } = await ctx.supabase
             .from("chat_sessions")
-            .update({ status: "completed", completed_at: new Date().toISOString() })
+            .update({
+              status: "completed",
+              completed_at: new Date().toISOString(),
+            })
             .eq("id", sessionId)
             .eq("user_id", ctx.userId)
           if (sesErr) console.warn("[finish_onboarding] session:", sesErr.message)
@@ -262,12 +323,55 @@ function onboardingExclusive(ctx: ToolsContext) {
   }
 }
 
+function askExclusive(ctx: ToolsContext) {
+  const stub = envServer.AI_CHAT_STUB_TOOLS
+  return {
+    find_hacks: tool({
+      description:
+        "Call when the user asks how-to questions, looks for inspiration, or otherwise wants concrete hacks from the platform. Runs Postgres FTS via public.find_hacks. Returns up to `limit` published hacks with id/title/summary/source so you can reference them in your reply. The UI also renders these as clickable cards — your reply should narrate (e.g. 'Ik vond 3 ideeën voor je…') rather than dump titles.",
+      inputSchema: zodSchema(
+        z.object({
+          query: z.string().min(1).max(500),
+          limit: z.number().int().min(1).max(10).optional().default(5),
+        })
+      ),
+      execute: async ({ query, limit }) => {
+        if (stub) {
+          console.log("[AI stub] find_hacks", query, limit)
+          return { stub: true, query, limit, hacks: [] }
+        }
+        const { data, error } = await ctx.supabase.rpc("find_hacks", {
+          p_query: query,
+          p_limit: limit,
+        })
+        if (error) {
+          return { ok: false as const, reason: error.message, query }
+        }
+        const hacks = ((data ?? []) as Array<Record<string, unknown>>).map(
+          (h) => ({
+            id: h.id as string,
+            title: h.title as string,
+            summary: (h.summary as string | null) ?? null,
+            source: h.source as string,
+          })
+        )
+        return {
+          ok: true as const,
+          query,
+          count: hacks.length,
+          hacks,
+        }
+      },
+    }),
+  }
+}
+
 function checkinExclusive(ctx: ToolsContext) {
   const stub = envServer.AI_CHAT_STUB_TOOLS
   return {
     save_weekly_checkin: tool({
       description:
-        "Upsert weekly check-in body for the current UTC week bucket plus curated tag overlaps.",
+        "Call once per check-in conversation when the user has shared their weekly recap. Upserts weekly_checkins for the current UTC week bucket and replaces tag links. Body should be the user's recap text, ≤4000 chars.",
       inputSchema: zodSchema(
         z.object({
           body: z.string().min(1).max(4000),
@@ -277,7 +381,12 @@ function checkinExclusive(ctx: ToolsContext) {
       execute: async ({ body, tagSlugs }) => {
         const week_start = currentWeekStartUtc()
         if (stub) {
-          console.log("[AI stub] save_weekly_checkin", week_start, body, tagSlugs)
+          console.log(
+            "[AI stub] save_weekly_checkin",
+            week_start,
+            body,
+            tagSlugs
+          )
           return { stub: true, week_start }
         }
 
@@ -318,19 +427,26 @@ function checkinExclusive(ctx: ToolsContext) {
     }),
 
     finish_checkin: tool({
-      description: "Marks the guided check-in session complete.",
-      inputSchema: zodSchema(z.object({ acknowledged: z.boolean().optional() })),
+      description:
+        "Call to wrap up the check-in conversation. ALWAYS succeeds — your judgement is the gate. Closes the chat session.",
+      inputSchema: zodSchema(
+        z.object({ acknowledged: z.boolean().optional() })
+      ),
       execute: async () => {
         if (stub) {
           console.log("[AI stub] finish_checkin")
           return { stub: true }
         }
+
         const sessionId = ctx.sessionId
         if (!sessionId) return { ok: false as const, reason: "no_session_id" }
 
         const { error } = await ctx.supabase
           .from("chat_sessions")
-          .update({ status: "completed", completed_at: new Date().toISOString() })
+          .update({
+            status: "completed",
+            completed_at: new Date().toISOString(),
+          })
           .eq("id", sessionId)
           .eq("user_id", ctx.userId)
         if (error) throw new Error(error.message)
@@ -344,6 +460,9 @@ export function createChatTools(ctx: ToolsContext) {
   const base = sharedTools(ctx)
   if (ctx.kind === "onboarding") {
     return { ...base, ...onboardingExclusive(ctx) }
+  }
+  if (ctx.kind === "ask") {
+    return { ...base, ...askExclusive(ctx) }
   }
   return { ...base, ...checkinExclusive(ctx) }
 }

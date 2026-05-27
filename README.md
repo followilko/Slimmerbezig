@@ -50,7 +50,11 @@ See [`.env.local.example`](.env.local.example) for placeholders.
 3. Paste the contents of [`supabase/learning_schema.sql`](supabase/learning_schema.sql) → **Run** (sector/role extensions, hacks, tags, frustrations, weekly check-ins, challenges, interactions, RLS, `get_recommended_hacks()`).
 4. **Optional**: at the bottom of [`supabase/learning_schema.sql`](supabase/learning_schema.sql), uncomment and run the **OPTIONAL SEED** block alone to insert sector + sample frustration tags (must align with curated content later).
 5. Paste [`supabase/ai_chat_schema.sql`](supabase/ai_chat_schema.sql) → **Run** (coach transcripts, **`profile_understanding`**, **`user_interests`**, **`tag_suggestions`**, extends **`tags.kind`** with **`capability`**, **`profiles.onboarded_at`**, updated **`get_recommended_hacks()`**). Uncomment the OPTIONAL SEED inside that file if you want starter **tool/capability** tags.
-6. Paste [`supabase/04_delete_account.sql`](supabase/04_delete_account.sql) → **Run** (self-serve **`delete_my_account()`** RPC for “Delete my profile” on **`/dashboard`** — testing reset).
+6. Paste [`supabase/03_onboarding_extras.sql`](supabase/03_onboarding_extras.sql) → **Run** (adds **`profiles.linkedin_url`** for the onboarding coach).
+7. Paste [`supabase/04_delete_account.sql`](supabase/04_delete_account.sql) → **Run** (self-serve **`delete_my_account()`** RPC for “Delete my profile” on **`/dashboard`** — testing reset).
+8. Paste [`supabase/05_recommendation_v2.sql`](supabase/05_recommendation_v2.sql) → **Run** (replaces **`get_recommended_hacks()`** with v2 — helpful-boost, viewed/completed decay, `not_helpful` exclude on top of v1 tag overlap).
+9. Paste [`supabase/06_hack_search.sql`](supabase/06_hack_search.sql) → **Run** (adds **`hacks.search_tsv`** weighted generated column + GIN index + **`find_hacks(query, limit)`** RPC for Postgres FTS — backs both the AskBar search dropdown and the AI `find_hacks` tool).
+10. Paste [`supabase/07_ask_session.sql`](supabase/07_ask_session.sql) → **Run** (extends **`chat_sessions_kind_check`** with `'ask'` — required for the rolling, never-closing Ask chat session powering the global AskBar).
 
 [`supabase/future_schema.sql`](supabase/future_schema.sql) is a commented-only sketch for credits, reactions, follows, paths, career tables — **do not run** until you move those features out of sketch form.
 
