@@ -8,6 +8,7 @@ import { PostTitle } from "@/components/post/post-title"
 import { EmptyStateCard } from "@/components/shell/empty-state"
 import { PageHeader, PageShell } from "@/components/shell/page-header"
 import { formatPostTitle, getPostById } from "@/lib/dummy/posts"
+import { isPostSaved } from "@/lib/posts/saved-posts-cookie"
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -27,12 +28,14 @@ export default async function PostDetailPage({ params }: PageProps) {
   const post = getPostById(id)
   if (!post) notFound()
 
+  const saved = await isPostSaved(id)
+
   return (
     <PageShell className="max-w-3xl">
       <PageHeader title={formatPostTitle(post)} />
 
       <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-        <PostMetaRow post={post} />
+        <PostMetaRow post={post} saved={saved} />
         <div className="mt-4 space-y-4">
           <PostTitle post={post} />
           <PostAuthor post={post} />

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 
 import { AppHeader } from "@/components/shell/app-header"
 import { getSavedCount, getViewer } from "@/lib/profile/get-viewer-profile"
+import { getSavedPostCount } from "@/lib/posts/saved-posts-cookie"
 
 export default async function AppShellLayout({
   children,
@@ -13,7 +14,11 @@ export default async function AppShellLayout({
     redirect("/login")
   }
 
-  const savedCount = await getSavedCount(viewer.userId)
+  const [dbSavedCount, cookieSavedCount] = await Promise.all([
+    getSavedCount(viewer.userId),
+    getSavedPostCount(),
+  ])
+  const savedCount = dbSavedCount + cookieSavedCount
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50">

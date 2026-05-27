@@ -17,17 +17,17 @@ import { PostTitle } from "./post-title"
 
 export function PostCard({
   post,
+  saved,
   className,
   enableViewTracking = false,
   alreadyViewed = false,
-  onToggleFavorite,
 }: {
   post: Post
+  saved: boolean
   className?: string
   /** Only enable when post.id maps to a real hacks row (FK-safe). */
   enableViewTracking?: boolean
   alreadyViewed?: boolean
-  onToggleFavorite?: (next: boolean) => Promise<void> | void
 }) {
   return (
     <Card
@@ -45,7 +45,7 @@ export function PostCard({
         className="group/card-link flex h-full flex-col focus-visible:outline-none"
       >
         <CardHeader className="pb-2">
-          <PostMetaRow post={post} onToggleFavorite={onToggleFavorite} />
+          <PostMetaRow post={post} saved={saved} />
         </CardHeader>
 
         <CardContent className="flex flex-1 flex-col gap-4">

@@ -5,10 +5,10 @@ import { PostFavoriteButton } from "./post-favorite-button"
 
 export function PostMetaRow({
   post,
-  onToggleFavorite,
+  saved,
 }: {
   post: Post
-  onToggleFavorite?: (next: boolean) => Promise<void> | void
+  saved: boolean
 }) {
   return (
     <div className="flex items-center justify-between gap-2">
@@ -16,7 +16,7 @@ export function PostMetaRow({
         <Badge variant="outline">{POST_TYPE_LABEL[post.postType]}</Badge>
         <Badge variant="secondary">{post.estimatedMinutes} min</Badge>
       </div>
-      <PostFavoriteButton saved={post.saved} onToggle={onToggleFavorite} />
+      <PostFavoriteButton postId={post.id} saved={saved} />
     </div>
   )
 }

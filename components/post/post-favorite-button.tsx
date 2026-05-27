@@ -3,14 +3,17 @@
 import { Heart } from "lucide-react"
 import { useOptimistic, useTransition } from "react"
 
+import { togglePostFavorite } from "@/app/(app)/posts/actions"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 export function PostFavoriteButton({
+  postId,
   saved: initialSaved,
   onToggle,
   className,
 }: {
+  postId: string
   saved: boolean
   onToggle?: (next: boolean) => Promise<void> | void
   className?: string
@@ -28,7 +31,16 @@ export function PostFavoriteButton({
     startTransition(async () => {
       const next = !optimisticSaved
       setOptimisticSaved(next)
-      await onToggle?.(next)
+
+      if (onToggle) {
+        await onToggle(next)
+        return
+      }
+
+      const result = await togglePostFavorite(postId)
+      if (!result.ok) {
+        setOptimisticSaved(!next)
+      }
     })
   }
 

@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { requireOnboarded } from "@/lib/auth/onboarding"
 import { POSTS } from "@/lib/dummy/posts"
 import { displayNameFor, getViewer } from "@/lib/profile/get-viewer-profile"
+import { getSavedPostIds } from "@/lib/posts/saved-posts-cookie"
 
 export default async function ForYouPage() {
   const viewer = await getViewer()
@@ -17,6 +18,7 @@ export default async function ForYouPage() {
   // TODO: re-wire to supabase.rpc("get_recommended_hacks") once schema deltas
   // (post_type, structured title, tool tags, org, praise/points) land.
   const posts = POSTS
+  const savedIds = await getSavedPostIds()
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 pb-12 pt-6 sm:px-6">
@@ -42,7 +44,11 @@ export default async function ForYouPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {posts.map((post) => (
-          <PostCard key={post.id} post={post} />
+          <PostCard
+            key={post.id}
+            post={post}
+            saved={savedIds.has(post.id)}
+          />
         ))}
       </div>
     </div>

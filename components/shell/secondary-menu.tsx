@@ -49,13 +49,18 @@ export function SecondaryMenu({
       <Link
         href={FAVORITES_HREF}
         aria-label={
-          savedCount > 0 ? `${savedCount} saved hacks` : "Saved hacks"
+          savedCount > 0 ? `${savedCount} saved posts` : "Saved posts"
         }
-        className="relative inline-flex size-8 items-center justify-center rounded-full bg-muted text-foreground transition-colors hover:bg-muted/80"
+        className={cn(
+          "relative inline-flex size-8 items-center justify-center rounded-full transition-colors",
+          savedCount > 0
+            ? "bg-favorite text-favorite-foreground hover:bg-favorite/90"
+            : "bg-muted text-foreground hover:bg-muted/80"
+        )}
       >
-        <Heart className="size-4" />
+        <Heart className={cn("size-4", savedCount > 0 && "fill-current")} />
         {badge ? (
-          <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold text-white ring-2 ring-white">
+          <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground px-1 text-[10px] font-semibold text-background ring-2 ring-white">
             {badge}
           </span>
         ) : null}
