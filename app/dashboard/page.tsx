@@ -2,6 +2,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 
 import { signOut } from "@/app/auth/actions"
+import { DeleteAccountButton } from "@/app/dashboard/delete-account-button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Card,
@@ -114,7 +115,7 @@ export default async function DashboardPage() {
             ) : null}
           </dl>
         </CardContent>
-        <CardFooter className="flex flex-wrap gap-3 justify-between border-t pt-6">
+        <CardFooter className="flex flex-wrap gap-4 justify-between border-t pt-6">
           <div className="flex flex-wrap gap-2">
             <Link
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
@@ -129,17 +130,20 @@ export default async function DashboardPage() {
               Weekly check-in
             </Link>
           </div>
-          <Link
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            href="/"
-          >
-            Home
-          </Link>
-          <form action={signOut}>
-            <Button type="submit" variant="destructive" size="sm">
-              Sign out
-            </Button>
-          </form>
+          <div className="flex flex-wrap items-start gap-3 sm:items-center">
+            <Link
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+              href="/"
+            >
+              Home
+            </Link>
+            <form action={signOut}>
+              <Button type="submit" variant="destructive" size="sm">
+                Sign out
+              </Button>
+            </form>
+            <DeleteAccountButton />
+          </div>
         </CardFooter>
       </Card>
 

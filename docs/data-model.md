@@ -7,8 +7,11 @@ Schemas live as SQL-first sources of truth:
 | [supabase/schema.sql](../supabase/schema.sql) | Auth baseline: `profiles`, new-user trigger (run **first**) |
 | [supabase/learning_schema.sql](../supabase/learning_schema.sql) | Learning MVP tables, RLS, `get_recommended_hacks()` |
 | [supabase/ai_chat_schema.sql](../supabase/ai_chat_schema.sql) | AI onboarding/check-in transcripts, **`profile_understanding`**, **`user_interests`**, **`tag_suggestions`**, **`tags.capability`**; replaces **`get_recommended_hacks`** to include interests |
+| [supabase/04_delete_account.sql](../supabase/04_delete_account.sql) | Self-serve testing reset: **`delete_my_account()`** — deletes **`auth.users`** for the caller; cascades **`profiles`** and user-owned rows (see ADR 2026-05-27) |
 
 See also [decisions.md](decisions.md) for *why* (split files, ledger model, ESCO-ready tags).
+
+Alongside **`get_recommended_hacks`**, **`public.delete_my_account()`** is an app-invoked RPC: **SECURITY DEFINER**, executable by **`authenticated`** only, used from the dashboard “Delete my profile” flow.
 
 ---
 

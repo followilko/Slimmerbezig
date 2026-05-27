@@ -16,6 +16,7 @@ Quick orientation: visions and trade-offs live in [vision.md](vision.md) & [deci
 - **Project brain docs** (**`docs/`**) + expanded **`AGENTS.md`**
 - **AI coach MVP**: OpenAI **`gpt-4o-mini`** streaming via **`/api/onboarding/chat`**, **`/onboarding`** + **`/checkin`** UIs (**`AI SDK 6`** + **`@ai-sdk/react` `useChat`**), tooling to write frustrations/interests/`profile_understanding`, optional **`AI_CHAT_STUB_TOOLS`**
 - **`supabase/ai_chat_schema.sql`** (transcripts + interests + curator **`tag_suggestions`** queue + **`get_recommended_hacks`** union **`user_interests`**)
+- **Self-serve profile delete**: `delete_my_account()` RPC (`supabase/04_delete_account.sql`) + Dashboard two-step confirm + `deleteAccount` server action — full test reset without service role
 
 ### Schema (new migration on top of `learning_schema.sql`)
 

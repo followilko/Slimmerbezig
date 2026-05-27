@@ -324,3 +324,15 @@ A user **may promote their own hack** as a solution explicitly (UI affordance; d
 **Alternatives:** Barba + fight the framework; View Transitions API only.
 
 **Consequences:** Predictable auth and data loading; “Barba-like” page-in is approximated with `template`, not a second router.
+
+---
+
+## 2026-05-27 — Self-serve account delete via SECURITY DEFINER RPC
+
+**Context:** Developers and testers need a fast way to wipe their account and re-run onboarding/check-in/feed from a clean slate without juggling Supabase Table Editor or a separate staging project.
+
+**Decision:** Add **`public.delete_my_account()`** in [`supabase/04_delete_account.sql`](../supabase/04_delete_account.sql): **`SECURITY DEFINER`**, **`auth.uid()`** must match the row deleted from **`auth.users`**, **`GRANT EXECUTE` to `authenticated` only**. App calls it from a POST **Server Action** ([`deleteAccount` in `app/auth/actions.ts`](../app/auth/actions.ts)) after a two-step confirm on **`/dashboard`**. No **`SUPABASE_SERVICE_ROLE_KEY`** in the app.
+
+**Alternatives:** Admin API delete user (requires service role + env plumbing); soft-delete columns only (does not reset OAuth-linked identity cleanly); manual deletes in Dashboard.
+
+**Consequences:** Deleting **`auth.users`** cascades to **`profiles`** and all tables that FK to **`profiles` with ON DELETE CASCADE**; **`hacks.author_id`** remains **ON DELETE SET NULL** so authored hacks are not removed, only detached from the deleted user — suitable for curated/test content survival. Production users get the same affordance unless we gate it later (e.g. env or feature flag).
