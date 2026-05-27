@@ -1,21 +1,18 @@
 import type { SimpleIcon } from "simple-icons"
 import {
   siClaude,
+  siCursor,
   siFigma,
-  siGooglegemini,
-  siGooglesheets,
-  siLinear,
+  siFramer,
   siNotion,
+  siZoom,
 } from "simple-icons"
 
 import type { ToolSlug } from "@/lib/dummy/posts"
 import { cn } from "@/lib/utils"
 
 /** Brands absent from simple-icons — minimal path + official hex. */
-const CUSTOM_TOOL_ICONS: Record<
-  "photoshop" | "chatgpt" | "microsoftexcel",
-  SimpleIcon
-> = {
+const CUSTOM_TOOL_ICONS: Record<"photoshop", SimpleIcon> = {
   photoshop: {
     title: "Adobe Photoshop",
     slug: "photoshop",
@@ -24,34 +21,16 @@ const CUSTOM_TOOL_ICONS: Record<
     svg: "",
     source: "https://www.adobe.com/products/photoshop.html",
   },
-  chatgpt: {
-    title: "ChatGPT",
-    slug: "chatgpt",
-    hex: "10A37F",
-    path: "M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.899A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.365-1.972V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.168a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08-4.778 2.758a.795.795 0 0 0-.393.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z",
-    svg: "",
-    source: "https://openai.com/chatgpt",
-  },
-  microsoftexcel: {
-    title: "Microsoft Excel",
-    slug: "microsoftexcel",
-    hex: "217346",
-    path: "M23 1.5H7.75L1 8.25V23h22V1.5zM8.5 3v5.25H3.375L8.5 3zm13.5 18.75H9V10.5h13v11.25zM10.5 12v8.25h10.5V12H10.5zm1.5 1.5h3v1.5h-3v-1.5zm0 3h3v1.5h-3v-1.5zm0 3h3v1.5h-3v-1.5zm4.5-6h3v1.5h-3v-1.5zm0 3h3v1.5h-3v-1.5zm0 3h3v1.5h-3v-1.5z",
-    svg: "",
-    source: "https://www.microsoft.com/microsoft-365/excel",
-  },
 }
 
 const TOOL_ICONS: Record<ToolSlug, SimpleIcon> = {
   photoshop: CUSTOM_TOOL_ICONS.photoshop,
-  chatgpt: CUSTOM_TOOL_ICONS.chatgpt,
-  microsoftexcel: CUSTOM_TOOL_ICONS.microsoftexcel,
-  claude: siClaude,
   figma: siFigma,
-  googlegemini: siGooglegemini,
-  googlesheets: siGooglesheets,
-  linear: siLinear,
+  framer: siFramer,
   notion: siNotion,
+  zoom: siZoom,
+  cursor: siCursor,
+  claude: siClaude,
 }
 
 export function ToolIcon({

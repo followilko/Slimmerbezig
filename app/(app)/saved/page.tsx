@@ -2,16 +2,41 @@ import { PostCard } from "@/components/post/post-card"
 import { EmptyStateCard } from "@/components/shell/empty-state"
 import { PageHeader, PageShell } from "@/components/shell/page-header"
 import { requireOnboarded } from "@/lib/auth/onboarding"
-import { POSTS } from "@/lib/dummy/posts"
-import { getSavedPostIds } from "@/lib/posts/saved-posts-cookie"
+import { getPostMeta } from "@/lib/dummy/posts"
 import { getViewer } from "@/lib/profile/get-viewer-profile"
+import { createClient } from "@/lib/supabase/server"
+
+type SavedRow = {
+  hack_id: string
+  created_at: string
+  hacks: { id: string; status: string } | null
+}
 
 export default async function SavedPage() {
   const viewer = await getViewer()
   requireOnboarded(viewer?.profile ?? null)
 
-  const savedIds = await getSavedPostIds()
-  const posts = POSTS.filter((post) => savedIds.has(post.id))
+  const userId = viewer!.userId
+  const supabase = await createClient()
+
+  // Join hack_interactions → hacks so we can filter out archived/draft rows
+  // and order by when the user saved them (newest first).
+  const { data } = await supabase
+    .from("hack_interactions")
+    .select("hack_id, created_at, hacks!inner(id, status)")
+    .eq("user_id", userId)
+    .eq("kind", "saved")
+    .order("created_at", { ascending: false })
+
+  const rows = ((data ?? []) as unknown as SavedRow[]).filter(
+    (r) => r.hacks?.status === "published"
+  )
+
+  const posts = rows.flatMap((r) => {
+    const meta = getPostMeta(r.hack_id)
+    if (!meta) return []
+    return [{ id: r.hack_id, ...meta }]
+  })
   const count = posts.length
 
   return (

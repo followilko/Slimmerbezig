@@ -653,3 +653,23 @@ Neither calls `requireOnboarded()` — a brand-new user must be able to delete o
 **Alternatives:** Land full SQL migration first (blocked scope); keep legacy minimal `HackCard` (doesn't match wireframe); rename DB tables now (high churn across RPCs/RLS).
 
 **Consequences:** `/for-you` is visually testable end-to-end. Re-wiring to Supabase is a follow-up once schema deltas land. Legacy [`components/feed/hack-card-actions.tsx`](../components/feed/hack-card-actions.tsx) remains for any unmigrated surfaces.
+
+---
+
+## 2026-05-28 — Dummy posts seeded as curated `hacks`; cookie favorite layer retired
+
+**Context:** The prior ADR ("Post card design system; 'Post' as UI term (dummy data interim)") shipped `<PostCard />` against TypeScript-only dummies and a follow-up hooked the favorite heart to an `httpOnly` cookie so the feature was demonstrable end-to-end. Two seams stayed broken: (a) `find_hacks` / `get_recommended_hacks` / Ask coach all query the real `public.hacks` table, so the dummy posts were invisible to search and recommendations; (b) the cookie meant favorites lived outside RLS, didn't survive a sign-out, and accumulated a parallel source of truth.
+
+**Decision:**
+1. **Seed dummies into Supabase.** [`supabase/08_seed_dummy_posts.sql`](../supabase/08_seed_dummy_posts.sql) idempotently inserts 10 curated rows (`source='curated'`, `author_id=null`, `status='published'`) with **hardcoded UUIDs** (`aaaaaaaa-0001-0001-0001-00000000000N`) and links each to one sector tag + one tool tag in `public.hack_tags`. Re-runs upsert title/summary/body and never duplicate tag links.
+2. **TS metadata mirrors SQL by id.** [`lib/dummy/posts.ts`](../lib/dummy/posts.ts) now exposes **`POST_META_BY_ID`** (keyed by the same UUIDs) + **`getPostMeta(id)`** — every UI page reads core data (`id`, `title`, `status`) from `public.hacks` and decorates with TS metadata (`postType`, `estimatedMinutes`, structured title parts, author block, peers, metrics). The B2B-MVP migration (post_type / goal / structured title columns / praise ledger / org affiliation) is still pending — this split is the bridge.
+3. **Tool set rebuilt to product priorities.** `ToolSlug` shrinks to `photoshop | figma | framer | notion | zoom | cursor | claude` (drops `chatgpt / googlegemini / microsoftexcel / linear / googlesheets`). Sector spread becomes design (4) / operations (3) / engineering (2) / marketing (1); users in `finance / sales / hr / product / other` rely on the new recent-published fallback in `/for-you` until matching content lands.
+4. **Favorites move to `hack_interactions`.** [`app/(app)/posts/actions.ts`](../app/(app)/posts/actions.ts) `togglePostFavorite` is now a thin wrapper over the same insert/delete pattern as `app/for-you/actions.ts` `toggleSave` — same `kind='saved'` table, RLS scoped to `auth.uid()`, FK to `public.hacks` so stale ids fail loudly. The cookie file `lib/posts/saved-posts-cookie.ts` and its callers (`/for-you`, `/saved`, `/hacks/[id]`, `app/(app)/layout.tsx`) are removed; the layout's saved-count is now `getSavedCount(userId)` only.
+5. **`/for-you` adds a recent-published fallback.** When `get_recommended_hacks(20)` returns zero overlap, the page falls back to the 20 newest published hacks so new users (no sector overlap yet) never see an empty feed.
+6. **View tracking is now FK-safe.** `PostCard` enables `<HackViewTracker />` on the `/for-you` grid; the v2 recommendation decay finally sees real `viewed` rows for these posts.
+
+**Supersedes (partial):** "2026-05-27 — Post card design system; 'Post' as UI term (dummy data interim)" — the dummy data is no longer purely TS, and the favorite cookie is gone. UI vocabulary ("Post" in code, "hack" in DB) and the component layout decisions still stand.
+
+**Alternatives:** Land the full `hacks` migration first (blocks the sprint); generate UUIDs at SQL run time (loses the SQL ↔ TS mirror); keep the cookie store as a guest-mode affordance (unnecessary — every authenticated route now writes to DB).
+
+**Consequences:** End-to-end is real: heart on the card persists in DB, the header badge reads from `hack_interactions`, `/saved` lists what you saved across sessions, and AskBar Search / Ask coach both surface the seeded posts via `find_hacks`. The hardcoded UUID convention establishes a pattern other curated content can follow until the rename migration. New non-design/ops/eng users see a thinner feed until their sectors are populated — the fallback is the cheap insurance policy. Legacy [`components/feed/hack-card-actions.tsx`](../components/feed/hack-card-actions.tsx) is still in the tree as an unmigrated surface.

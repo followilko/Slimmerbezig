@@ -12,6 +12,7 @@ Schemas live as SQL-first sources of truth:
 | [supabase/06_hack_search.sql](../supabase/06_hack_search.sql) | **`hacks.search_tsv`** generated column (weighted: title=A, summary=B, body_md=C) + GIN index + **`find_hacks(query, limit)`** RPC for Postgres FTS |
 | [supabase/07_ask_session.sql](../supabase/07_ask_session.sql) | Extends **`chat_sessions_kind_check`** to allow `'ask'` — backs the rolling, never-closing Ask chat session (ADR 2026-05-27 — Ask is a rolling, never-closing chat session) |
 | [supabase/04_delete_account.sql](../supabase/04_delete_account.sql) | Self-serve testing reset: **`delete_my_account()`** — deletes **`auth.users`** for the caller; cascades **`profiles`** and user-owned rows (see ADR 2026-05-27) |
+| [supabase/08_seed_dummy_posts.sql](../supabase/08_seed_dummy_posts.sql) | Idempotent seed: 10 curated `hacks` rows + sector/tool tags + `hack_tags` links. Hardcoded UUIDs (`aaaaaaaa-0001-0001-0001-00000000000N`) mirror **`POST_META_BY_ID`** in [`lib/dummy/posts.ts`](../lib/dummy/posts.ts) so DB rows decorate with TS-only metadata (post type, minutes, author, peers, metrics) until the B2B schema deltas below land. See ADR 2026-05-28 — Dummy posts seeded as curated hacks. |
 
 See also [decisions.md](decisions.md) for *why* (split files, ledger model, ESCO-ready tags).
 

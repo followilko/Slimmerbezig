@@ -2,41 +2,57 @@
 
 import { revalidatePath } from "next/cache"
 
-import { POSTS } from "@/lib/dummy/posts"
-import {
-  getSavedPostIds,
-  writeSavedPostIds,
-} from "@/lib/posts/saved-posts-cookie"
+import { createClient } from "@/lib/supabase/server"
 
 /**
- * Toggle favorite for a dummy post id (cookie-backed until hacks schema supports
- * the full PostCard shape and real rows back the feed).
+ * Toggle the `saved` interaction on/off for a post (hack). Idempotent.
+ * Mirrors app/for-you/actions.ts `toggleSave` — kept as a thin alias under
+ * the post-card surface so [components/post/post-favorite-button.tsx] can
+ * import from a stable path. RLS on public.hack_interactions scopes by
+ * auth.uid(); FK to public.hacks rejects stale/dummy ids.
+ *
+ * Revalidates: /for-you, /saved, and the root layout (for the header badge).
+ * The detail page is path-revalidated by the dynamic route's own server data.
  */
 export async function togglePostFavorite(
-  postId: string
+  hackId: string
 ): Promise<{ ok: boolean; saved?: boolean; reason?: string }> {
-  if (!POSTS.some((p) => p.id === postId)) {
-    return { ok: false, reason: "invalid_post" }
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, reason: "unauthenticated" }
+
+  const { data: existing } = await supabase
+    .from("hack_interactions")
+    .select("hack_id")
+    .eq("user_id", user.id)
+    .eq("hack_id", hackId)
+    .eq("kind", "saved")
+    .maybeSingle()
+
+  if (existing) {
+    const { error } = await supabase
+      .from("hack_interactions")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("hack_id", hackId)
+      .eq("kind", "saved")
+    if (error) return { ok: false, reason: error.message }
+
+    revalidatePath("/for-you")
+    revalidatePath("/saved")
+    revalidatePath("/", "layout")
+    return { ok: true, saved: false }
   }
 
-  const saved = await getSavedPostIds()
-  const next = new Set(saved)
-  let isSaved: boolean
-
-  if (next.has(postId)) {
-    next.delete(postId)
-    isSaved = false
-  } else {
-    next.add(postId)
-    isSaved = true
-  }
-
-  await writeSavedPostIds([...next])
+  const { error } = await supabase
+    .from("hack_interactions")
+    .insert({ user_id: user.id, hack_id: hackId, kind: "saved" })
+  if (error) return { ok: false, reason: error.message }
 
   revalidatePath("/for-you")
   revalidatePath("/saved")
-  revalidatePath(`/hacks/${postId}`)
   revalidatePath("/", "layout")
-
-  return { ok: true, saved: isSaved }
+  return { ok: true, saved: true }
 }

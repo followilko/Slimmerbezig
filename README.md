@@ -55,6 +55,7 @@ See [`.env.local.example`](.env.local.example) for placeholders.
 8. Paste [`supabase/05_recommendation_v2.sql`](supabase/05_recommendation_v2.sql) → **Run** (replaces **`get_recommended_hacks()`** with v2 — helpful-boost, viewed/completed decay, `not_helpful` exclude on top of v1 tag overlap).
 9. Paste [`supabase/06_hack_search.sql`](supabase/06_hack_search.sql) → **Run** (adds **`hacks.search_tsv`** weighted generated column + GIN index + **`find_hacks(query, limit)`** RPC for Postgres FTS — backs both the AskBar search dropdown and the AI `find_hacks` tool).
 10. Paste [`supabase/07_ask_session.sql`](supabase/07_ask_session.sql) → **Run** (extends **`chat_sessions_kind_check`** with `'ask'` — required for the rolling, never-closing Ask chat session powering the global AskBar).
+11. Paste [`supabase/08_seed_dummy_posts.sql`](supabase/08_seed_dummy_posts.sql) → **Run** (seeds 10 curated **post** rows + their sector/tool tags; UUIDs are hardcoded so they mirror **`POST_META_BY_ID`** in [`lib/dummy/posts.ts`](lib/dummy/posts.ts)). Idempotent — re-run any time to refresh titles/summaries. Verify: `select count(*) from public.hacks where id like 'aaaaaaaa-0001-%';` returns **10**.
 
 [`supabase/future_schema.sql`](supabase/future_schema.sql) is a commented-only sketch for credits, reactions, follows, paths, career tables — **do not run** until you move those features out of sketch form.
 

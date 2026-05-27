@@ -1,16 +1,14 @@
 export type PostType = "bite" | "recipe" | "guide" | "external"
 
-/** Slugs match simple-icons (lowercase, no separator). */
+/** Slugs match simple-icons (lowercase, no separator); `photoshop` uses a custom path. */
 export type ToolSlug =
   | "photoshop"
-  | "chatgpt"
-  | "claude"
-  | "googlegemini"
-  | "microsoftexcel"
   | "figma"
+  | "framer"
   | "notion"
-  | "linear"
-  | "googlesheets"
+  | "zoom"
+  | "cursor"
+  | "claude"
 
 export const POST_TYPE_LABEL: Record<PostType, string> = {
   bite: "Mini Hack",
@@ -33,6 +31,12 @@ export type PostPeer = {
   avatarUrl: string | null
 }
 
+/**
+ * Post = UI shape rendered by <PostCard />. Identity + canonical title come
+ * from public.hacks; the rest (postType, estimatedMinutes, structured title,
+ * author block, peers, metrics) lives only in TypeScript metadata until the
+ * B2B-MVP migration adds the matching columns.
+ */
 export type Post = {
   id: string
   postType: PostType
@@ -47,8 +51,10 @@ export type Post = {
   metrics: { likes: number; comments: number; points: number }
   completedByPeers: PostPeer[]
   totalPeerCompletions: number
-  saved: boolean
 }
+
+/** Wireframe-only metadata; merged onto each public.hacks row by id. */
+export type PostMeta = Omit<Post, "id">
 
 /** Assembles the canonical post title from structured parts. */
 export function formatPostTitle(post: Pick<Post, "title">): string {
@@ -60,12 +66,20 @@ export function getPostById(id: string): Post | undefined {
   return POSTS.find((p) => p.id === id)
 }
 
+/** Lookup decorating metadata for a `hacks.id`. Returns undefined for un-seeded rows. */
+export function getPostMeta(id: string): PostMeta | undefined {
+  return POST_META_BY_ID[id]
+}
+
 const daysAgo = (days: number) =>
   new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
 
-export const POSTS: Post[] = [
-  {
-    id: "post-photoshop-ai-actions",
+/**
+ * Hardcoded UUIDs mirror supabase/08_seed_dummy_posts.sql 1:1.
+ * Keep both files in lock-step; the SQL seed is the source of truth for `id`.
+ */
+export const POST_META_BY_ID: Record<string, PostMeta> = {
+  "aaaaaaaa-0001-0001-0001-000000000001": {
     postType: "recipe",
     estimatedMinutes: 20,
     title: {
@@ -88,196 +102,8 @@ export const POSTS: Post[] = [
       { name: "Pieter", avatarUrl: null },
     ],
     totalPeerCompletions: 3,
-    saved: true,
   },
-  {
-    id: "post-chatgpt-standup",
-    postType: "bite",
-    estimatedMinutes: 5,
-    title: {
-      action: "draft standup notes from yesterday's commits",
-      tool: { slug: "chatgpt", label: "ChatGPT" },
-    },
-    author: {
-      id: "author-maria",
-      name: "Maria van der Berg",
-      role: "Product Manager",
-      organization: "Flowstack",
-      avatarUrl: null,
-    },
-    publishedAt: daysAgo(1),
-    editedAt: null,
-    metrics: { likes: 8, comments: 1, points: 45 },
-    completedByPeers: [{ name: "Tom", avatarUrl: null }],
-    totalPeerCompletions: 1,
-    saved: false,
-  },
-  {
-    id: "post-excel-pivot",
-    postType: "guide",
-    estimatedMinutes: 45,
-    title: {
-      action: "build a pivot table from messy CSV exports",
-      tool: { slug: "microsoftexcel", label: "Excel" },
-    },
-    author: {
-      id: "author-jan",
-      name: "Jan de Vries",
-      role: "Finance Analyst",
-      organization: "Northwind BV",
-      avatarUrl: null,
-    },
-    publishedAt: daysAgo(5),
-    editedAt: daysAgo(3),
-    metrics: { likes: 24, comments: 7, points: 210 },
-    completedByPeers: [
-      { name: "Lisa", avatarUrl: null },
-      { name: "Mark", avatarUrl: null },
-    ],
-    totalPeerCompletions: 5,
-    saved: false,
-  },
-  {
-    id: "post-figma-auto-layout",
-    postType: "recipe",
-    estimatedMinutes: 15,
-    title: {
-      action: "speed up handoff with auto-layout tokens",
-      tool: { slug: "figma", label: "Figma" },
-    },
-    author: {
-      id: "author-sophie",
-      name: "Sophie Bakker",
-      role: "UX Designer",
-      organization: "Studio Oranje",
-      avatarUrl: null,
-    },
-    publishedAt: daysAgo(3),
-    editedAt: null,
-    metrics: { likes: 16, comments: 4, points: 88 },
-    completedByPeers: [],
-    totalPeerCompletions: 0,
-    saved: false,
-  },
-  {
-    id: "post-notion-meeting-notes",
-    postType: "bite",
-    estimatedMinutes: 3,
-    title: {
-      action: "summarise meeting notes into action items",
-      tool: { slug: "notion", label: "Notion" },
-    },
-    author: {
-      id: "author-alex",
-      name: "Alex Chen",
-      role: "Operations Lead",
-      organization: "Brightpath",
-      avatarUrl: null,
-    },
-    publishedAt: daysAgo(7),
-    editedAt: null,
-    metrics: { likes: 5, comments: 0, points: 32 },
-    completedByPeers: [{ name: "Noor", avatarUrl: null }],
-    totalPeerCompletions: 2,
-    saved: true,
-  },
-  {
-    id: "post-claude-code-review",
-    postType: "recipe",
-    estimatedMinutes: 25,
-    title: {
-      action: "run a structured code review on pull requests",
-      tool: { slug: "claude", label: "Claude" },
-    },
-    author: {
-      id: "author-david",
-      name: "David Okonkwo",
-      role: "Staff Engineer",
-      organization: "Cloudnine",
-      avatarUrl: null,
-    },
-    publishedAt: daysAgo(4),
-    editedAt: daysAgo(2),
-    metrics: { likes: 19, comments: 6, points: 156 },
-    completedByPeers: [
-      { name: "Emma", avatarUrl: null },
-      { name: "Ruben", avatarUrl: null },
-      { name: "Fatima", avatarUrl: null },
-    ],
-    totalPeerCompletions: 8,
-    saved: false,
-  },
-  {
-    id: "post-gemini-research",
-    postType: "external",
-    estimatedMinutes: 10,
-    title: {
-      action: "research competitors with grounded search",
-      tool: { slug: "googlegemini", label: "Gemini" },
-    },
-    author: {
-      id: "author-curator",
-      name: "Slimmerbezig Curator",
-      role: "Content Curator",
-      organization: "Slimmerbezig",
-      avatarUrl: null,
-    },
-    publishedAt: daysAgo(10),
-    editedAt: null,
-    metrics: { likes: 31, comments: 2, points: 67 },
-    completedByPeers: [{ name: "Kees", avatarUrl: null }],
-    totalPeerCompletions: 1,
-    saved: false,
-  },
-  {
-    id: "post-linear-triage",
-    postType: "bite",
-    estimatedMinutes: 5,
-    title: {
-      action: "triage inbox issues with an AI label pass",
-      tool: { slug: "linear", label: "Linear" },
-    },
-    author: {
-      id: "author-nina",
-      name: "Nina Patel",
-      role: "Engineering Manager",
-      organization: "Stackwise",
-      avatarUrl: null,
-    },
-    publishedAt: daysAgo(6),
-    editedAt: null,
-    metrics: { likes: 11, comments: 2, points: 54 },
-    completedByPeers: [{ name: "Jeroen", avatarUrl: null }],
-    totalPeerCompletions: 4,
-    saved: false,
-  },
-  {
-    id: "post-sheets-dashboard",
-    postType: "guide",
-    estimatedMinutes: 50,
-    title: {
-      action: "build a live KPI dashboard from Sheets data",
-      tool: { slug: "googlesheets", label: "Google Sheets" },
-    },
-    author: {
-      id: "author-eva",
-      name: "Eva Jansen",
-      role: "Marketing Analyst",
-      organization: "Growthlab",
-      avatarUrl: null,
-    },
-    publishedAt: daysAgo(14),
-    editedAt: daysAgo(12),
-    metrics: { likes: 42, comments: 9, points: 287 },
-    completedByPeers: [
-      { name: "Tim", avatarUrl: null },
-      { name: "Roos", avatarUrl: null },
-    ],
-    totalPeerCompletions: 6,
-    saved: false,
-  },
-  {
-    id: "post-photoshop-batch-export",
+  "aaaaaaaa-0001-0001-0001-000000000002": {
     postType: "recipe",
     estimatedMinutes: 18,
     title: {
@@ -296,6 +122,180 @@ export const POSTS: Post[] = [
     metrics: { likes: 14, comments: 3, points: 98 },
     completedByPeers: [{ name: "Iris", avatarUrl: null }],
     totalPeerCompletions: 2,
-    saved: true,
   },
-]
+  "aaaaaaaa-0001-0001-0001-000000000003": {
+    postType: "recipe",
+    estimatedMinutes: 15,
+    title: {
+      action: "speed up handoff with auto-layout tokens",
+      tool: { slug: "figma", label: "Figma" },
+    },
+    author: {
+      id: "author-sophie",
+      name: "Sophie Bakker",
+      role: "UX Designer",
+      organization: "Studio Oranje",
+      avatarUrl: null,
+    },
+    publishedAt: daysAgo(3),
+    editedAt: null,
+    metrics: { likes: 16, comments: 4, points: 88 },
+    completedByPeers: [],
+    totalPeerCompletions: 0,
+  },
+  "aaaaaaaa-0001-0001-0001-000000000004": {
+    postType: "bite",
+    estimatedMinutes: 5,
+    title: {
+      action: "generate ad variants from one master frame",
+      tool: { slug: "figma", label: "Figma" },
+    },
+    author: {
+      id: "author-eva",
+      name: "Eva Jansen",
+      role: "Marketing Designer",
+      organization: "Growthlab",
+      avatarUrl: null,
+    },
+    publishedAt: daysAgo(6),
+    editedAt: null,
+    metrics: { likes: 22, comments: 5, points: 71 },
+    completedByPeers: [
+      { name: "Tim", avatarUrl: null },
+      { name: "Roos", avatarUrl: null },
+    ],
+    totalPeerCompletions: 4,
+  },
+  "aaaaaaaa-0001-0001-0001-000000000005": {
+    postType: "recipe",
+    estimatedMinutes: 25,
+    title: {
+      action: "build a landing page from a single prompt",
+      tool: { slug: "framer", label: "Framer" },
+    },
+    author: {
+      id: "author-maria",
+      name: "Maria van der Berg",
+      role: "Brand Designer",
+      organization: "Flowstack",
+      avatarUrl: null,
+    },
+    publishedAt: daysAgo(4),
+    editedAt: daysAgo(2),
+    metrics: { likes: 31, comments: 6, points: 142 },
+    completedByPeers: [{ name: "Tom", avatarUrl: null }],
+    totalPeerCompletions: 5,
+  },
+  "aaaaaaaa-0001-0001-0001-000000000006": {
+    postType: "bite",
+    estimatedMinutes: 3,
+    title: {
+      action: "summarise meeting notes into action items",
+      tool: { slug: "notion", label: "Notion" },
+    },
+    author: {
+      id: "author-alex",
+      name: "Alex Chen",
+      role: "Operations Lead",
+      organization: "Brightpath",
+      avatarUrl: null,
+    },
+    publishedAt: daysAgo(7),
+    editedAt: null,
+    metrics: { likes: 9, comments: 0, points: 32 },
+    completedByPeers: [{ name: "Noor", avatarUrl: null }],
+    totalPeerCompletions: 2,
+  },
+  "aaaaaaaa-0001-0001-0001-000000000007": {
+    postType: "recipe",
+    estimatedMinutes: 20,
+    title: {
+      action: "build an AI-powered weekly review template",
+      tool: { slug: "notion", label: "Notion" },
+    },
+    author: {
+      id: "author-jan",
+      name: "Jan de Vries",
+      role: "Chief of Staff",
+      organization: "Northwind BV",
+      avatarUrl: null,
+    },
+    publishedAt: daysAgo(10),
+    editedAt: daysAgo(4),
+    metrics: { likes: 27, comments: 8, points: 184 },
+    completedByPeers: [
+      { name: "Lisa", avatarUrl: null },
+      { name: "Mark", avatarUrl: null },
+    ],
+    totalPeerCompletions: 6,
+  },
+  "aaaaaaaa-0001-0001-0001-000000000008": {
+    postType: "bite",
+    estimatedMinutes: 5,
+    title: {
+      action: "auto-summarise calls with AI Companion",
+      tool: { slug: "zoom", label: "Zoom" },
+    },
+    author: {
+      id: "author-nina",
+      name: "Nina Patel",
+      role: "Customer Success Manager",
+      organization: "Stackwise",
+      avatarUrl: null,
+    },
+    publishedAt: daysAgo(1),
+    editedAt: null,
+    metrics: { likes: 17, comments: 2, points: 58 },
+    completedByPeers: [{ name: "Jeroen", avatarUrl: null }],
+    totalPeerCompletions: 3,
+  },
+  "aaaaaaaa-0001-0001-0001-000000000009": {
+    postType: "recipe",
+    estimatedMinutes: 30,
+    title: {
+      action: "scaffold a new feature with agent mode",
+      tool: { slug: "cursor", label: "Cursor" },
+    },
+    author: {
+      id: "author-david",
+      name: "David Okonkwo",
+      role: "Staff Engineer",
+      organization: "Cloudnine",
+      avatarUrl: null,
+    },
+    publishedAt: daysAgo(5),
+    editedAt: null,
+    metrics: { likes: 38, comments: 11, points: 247 },
+    completedByPeers: [
+      { name: "Emma", avatarUrl: null },
+      { name: "Ruben", avatarUrl: null },
+      { name: "Fatima", avatarUrl: null },
+    ],
+    totalPeerCompletions: 9,
+  },
+  "aaaaaaaa-0001-0001-0001-000000000010": {
+    postType: "recipe",
+    estimatedMinutes: 25,
+    title: {
+      action: "run a structured code review on pull requests",
+      tool: { slug: "claude", label: "Claude" },
+    },
+    author: {
+      id: "author-curator",
+      name: "Slimmerbezig Curator",
+      role: "Content Curator",
+      organization: "Slimmerbezig",
+      avatarUrl: null,
+    },
+    publishedAt: daysAgo(14),
+    editedAt: daysAgo(12),
+    metrics: { likes: 42, comments: 9, points: 287 },
+    completedByPeers: [{ name: "Kees", avatarUrl: null }],
+    totalPeerCompletions: 7,
+  },
+}
+
+/** Derived list — every PostCard surface eventually replaces this with DB rows. */
+export const POSTS: Post[] = Object.entries(POST_META_BY_ID).map(
+  ([id, meta]) => ({ id, ...meta })
+)
