@@ -34,8 +34,18 @@ Canonical vocabulary — if you invent a synonym in UI copy or code comments, al
 |------|-------------|
 | **Role (`profiles.role`)** | **`learner`** — default consume-only. **`creator`** — publish **`user`** hacks (`author_id = self`). **`curator`** — manage **`tags`**, publish **`curated`** and **`external`** hacks. **`admin`** — tenant-wide (org) administration. |
 | **Organisation** | A tenant in the B2B model (`organizations` planned table). Users have **`organization_id`** on their profile; most content is scoped by it. |
-| **Office peers** | Users sharing the same **`organization_id`** as the viewer — the audience for the **Office peers** page. |
-| **Community** | A cluster around shared interest (sector / topic / tool) — feed scope on the **Communities** page. May span organisations (read-only public hacks). |
+| **Office peers** | Users sharing the same **`organization_id`** as the viewer — the audience for the **Office peers** page (route **`/office`**, nav label **"Peers"**). |
+| **Community** | A cluster around shared interest (sector / topic / tool) — feed scope on the **Communities** page (**`/communities`**). May span organisations (read-only public hacks). |
+
+## Surfaces (UI vocabulary)
+
+| Term | Definition |
+|------|-------------|
+| **App shell** | The chrome rendered by **`app/(app)/layout.tsx`**: sticky top `<AppHeader />` (brand + primary nav + secondary menu) and the globally-mounted `<AskBar />`. All in-app pages (Suggested / Peers / Communities / Explore / Challenges / Profile / Settings / Saved / Messages / Learning path / Become a creator / Hacks/new) inherit it. Login / onboarding / checkin / auth opt out by living outside the route group. |
+| **Suggested** | UI label for the personalised feed at **`/for-you`** — uses `get_recommended_hacks` v2 + the user's tag overlap. Same route as the original "For You" decision, just rebadged for the wireframe. |
+| **Explore** | Top-level **`/explore`** route — discovery surface for hacks **across organisations**. Empty until cross-org schema and a richer corpus land; conceptually distinct from **Communities** (opt-in topic clusters) and **Office peers** (single-org colleagues). |
+| **Primary nav** | The five-tab pill in the header: **Suggested / Peers / Communities / Explore · Challenges** (`·` is a visual divider, not a separate concept). Defined in **`components/shell/primary-nav.tsx`**. |
+| **Secondary menu** | The right side of the header: Create CTA (or "Become a creator"), favorites heart (saved-hacks badge), points pill (creator-only), avatar (→ `/profile`), hamburger (→ Account settings / Messages / Learning path / Sign out). |
 
 ## Signals & economy
 

@@ -1,11 +1,14 @@
 "use client"
 
 import gsap from "gsap"
-import { MessageCircle, Search as SearchIcon } from "lucide-react"
+import {
+  ArrowRight,
+  MessageCircle,
+  Search as SearchIcon,
+} from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 
-import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 import { AskOverlay } from "./ask-overlay"
@@ -31,8 +34,7 @@ export function AskBar() {
 
   // GSAP-driven minimize on scroll-down, restore on scroll-up.
   // Uses native scroll events — Lenis bridges to window.scrollY via gsap.ticker
-  // (see SmoothScrollProvider). Don't run while the overlay is open or the bar
-  // is hidden — avoid stray transforms.
+  // (see SmoothScrollProvider).
   useEffect(() => {
     if (hidden || overlayOpen) return
     const el = wrapperRef.current
@@ -69,7 +71,6 @@ export function AskBar() {
     }
   }, [hidden, overlayOpen])
 
-  // Cmd+K / Ctrl+K → focus the bar input.
   useEffect(() => {
     if (hidden) return
     const onKey = (e: KeyboardEvent) => {
@@ -97,8 +98,13 @@ export function AskBar() {
       openOverlay(text)
       setQuery("")
     }
-    // Search tab submits implicitly via the dropdown — no nav on Enter for now.
+    // Search tab submits implicitly via the dropdown — pressing Enter is a no-op.
   }
+
+  const placeholder =
+    tab === "search"
+      ? "Search hacks or share a work experience"
+      : "Stel een vraag aan de coach…"
 
   return (
     <>
@@ -109,66 +115,73 @@ export function AskBar() {
         <div className="pointer-events-auto w-full max-w-2xl">
           {tab === "search" ? <AskSearchResults query={query} /> : null}
 
-          <div className="rounded-full border bg-background/95 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80">
-            <form
-              onSubmit={handleSubmit}
-              className="flex items-center gap-1.5 p-1.5"
+          <form
+            onSubmit={handleSubmit}
+            className="flex items-center gap-2 rounded-full border border-border bg-white p-1.5 shadow-lg"
+          >
+            <div
+              role="tablist"
+              aria-label="Search or ask the coach"
+              className="flex shrink-0 items-center gap-0.5 pl-1"
             >
-              <div className="flex shrink-0 gap-0.5 rounded-full bg-muted/60 p-0.5">
-                <button
-                  type="button"
-                  aria-pressed={tab === "search"}
-                  onClick={() => setTab("search")}
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
-                    tab === "search"
-                      ? "bg-background shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <SearchIcon className="size-3" />
-                  Search
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={tab === "ask"}
-                  onClick={() => setTab("ask")}
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
-                    tab === "ask"
-                      ? "bg-background shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <MessageCircle className="size-3" />
-                  Ask
-                </button>
-              </div>
-
-              <input
-                ref={inputRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === "search"}
+                aria-label="Search hacks"
+                title="Search hacks"
+                onClick={() => setTab("search")}
+                className={cn(
+                  "inline-flex size-7 items-center justify-center rounded-full transition-colors",
                   tab === "search"
-                    ? "Zoek hacks…  (⌘K)"
-                    : "Stel een vraag…  (⌘K)"
-                }
-                className="h-8 flex-1 border-0 bg-transparent px-1 text-sm outline-none placeholder:text-muted-foreground focus:ring-0"
-              />
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                )}
+              >
+                <SearchIcon className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === "ask"}
+                aria-label="Ask the coach"
+                title="Ask the coach"
+                onClick={() => setTab("ask")}
+                className={cn(
+                  "inline-flex size-7 items-center justify-center rounded-full transition-colors",
+                  tab === "ask"
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                )}
+              >
+                <MessageCircle className="size-3.5" />
+              </button>
+            </div>
 
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={placeholder}
+              aria-label={placeholder}
+              className="h-9 flex-1 border-0 bg-transparent px-1 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-0"
+            />
+
+            <button
+              type="submit"
+              aria-label={tab === "ask" ? "Ask" : "Search"}
+              disabled={tab === "ask" && !query.trim()}
+              className={cn(
+                "inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-90 disabled:opacity-40"
+              )}
+            >
               {tab === "ask" ? (
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={!query.trim()}
-                  className="shrink-0"
-                >
-                  Vraag
-                </Button>
-              ) : null}
-            </form>
-          </div>
+                <ArrowRight className="size-4" />
+              ) : (
+                <SearchIcon className="size-4" />
+              )}
+            </button>
+          </form>
         </div>
       </div>
 

@@ -111,6 +111,13 @@ These are **decided but not yet migrated**. They are tracked in [decisions.md](d
 - Only `curator`/`admin` may insert/update `hacks WHERE source='external'`.
 - Praise inserts must enforce `target.author_id <> user_id` (no self-praise) and idempotency via unique constraint.
 
+### Surfaces blocked on this delta
+
+The app shell ships their routes today but they render an EmptyState until the schema lands (see ADR 2026-05-27 — App shell via `(app)` route group + `AppHeader`):
+
+- **`/office`** (Peers) — needs `profiles.organization_id` to scope the feed to the viewer's colleagues.
+- **`/explore`** — needs the same `organization_id` column plus a hack-level public/private visibility flag (or the heuristic "platform-curated + external sources are always public, user-source defaults to org-private") so the cross-org filter can be expressed in RLS.
+
 ---
 
 ## Future

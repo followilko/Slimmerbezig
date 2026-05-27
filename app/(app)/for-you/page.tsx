@@ -1,5 +1,4 @@
 import Link from "next/link"
-import { redirect } from "next/navigation"
 
 import {
   Card,
@@ -9,14 +8,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { buttonVariants } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import { createClient } from "@/lib/supabase/server"
 import {
   HackCardActions,
   type HackReactions,
 } from "@/components/feed/hack-card-actions"
 import { HackViewTracker } from "@/components/feed/hack-view-tracker"
+import { requireOnboarded } from "@/lib/auth/onboarding"
+import { displayNameFor, getViewer } from "@/lib/profile/get-viewer-profile"
+import { createClient } from "@/lib/supabase/server"
+import { cn } from "@/lib/utils"
 
 function Pill({
   children,
@@ -66,44 +66,20 @@ function reactionsFor(
 }
 
 export default async function ForYouPage() {
+  const viewer = await getViewer()
+  requireOnboarded(viewer?.profile ?? null)
+
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/login")
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("given_name, full_name, sector, onboarded_at")
-    .eq("id", user.id)
-    .maybeSingle<{
-      given_name: string | null
-      full_name: string | null
-      sector: string | null
-      onboarded_at: string | null
-    }>()
-
-  if (!profile?.onboarded_at) {
-    redirect("/onboarding")
-  }
+  const userId = viewer!.userId
+  const profile = viewer!.profile
 
   const givenName =
-    profile?.given_name ?? profile?.full_name?.split(" ")[0]?.trim() ?? null
+    profile?.given_name ??
+    displayNameFor(profile)?.split(" ")[0]?.trim() ??
+    null
 
-  const [recsRes, understandingRes] = await Promise.all([
-    supabase.rpc("get_recommended_hacks", { p_limit: 20 }),
-    supabase
-      .from("profile_understanding")
-      .select("summary")
-      .eq("user_id", user.id)
-      .maybeSingle<{ summary: string | null }>(),
-  ])
-
+  const recsRes = await supabase.rpc("get_recommended_hacks", { p_limit: 20 })
   const hacks = (recsRes.data ?? []) as HackRow[]
-  const summary = understandingRes.data?.summary ?? null
 
   const interactionMap = new Map<string, Set<InteractionRow["kind"]>>()
   if (hacks.length > 0) {
@@ -111,7 +87,7 @@ export default async function ForYouPage() {
     const { data: interactions } = await supabase
       .from("hack_interactions")
       .select("hack_id, kind")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .in("hack_id", hackIds)
       .in("kind", ["helpful", "not_helpful", "saved", "viewed"])
       .returns<InteractionRow[]>()
@@ -123,69 +99,36 @@ export default async function ForYouPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6">
-      <div className="mx-auto flex w-full max-w-5xl flex-wrap items-end justify-between gap-4">
+    <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 pb-12 pt-6 sm:px-6">
+      <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
           <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            For You{givenName ? `, ${givenName}` : ""}
+            Suggested{givenName ? `, ${givenName}` : ""}
           </h1>
           <p className="text-muted-foreground max-w-2xl text-sm">
             Hacks afgestemd op je sector, frustraties en tools. Markeer wat
-            werkt — je feed leert ervan. Meer feeds (Popular, Office peers)
-            komen er nog aan.
+            werkt — je feed leert ervan.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {profile.sector ? (
-            <Pill variant="secondary">{profile.sector}</Pill>
-          ) : null}
-          <Link
-            href="/onboarding"
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-          >
-            Update profile
-          </Link>
-          <Link
-            href="/checkin"
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-          >
-            Weekly check-in
-          </Link>
+        {profile?.sector ? (
+          <Pill variant="secondary">{profile.sector}</Pill>
+        ) : null}
+      </header>
+
+      {hacks.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {hacks.map((h) => (
+            <HackCard
+              key={h.id}
+              hack={h}
+              reactions={reactionsFor(h.id, interactionMap)}
+              alreadyViewed={Boolean(interactionMap.get(h.id)?.has("viewed"))}
+            />
+          ))}
         </div>
-      </div>
-
-      {summary ? (
-        <Card className="mx-auto w-full max-w-5xl">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">
-              Wat we van je weten
-            </CardTitle>
-            <CardDescription>
-              Rolling samenvatting (privé, alleen jij ziet hem).
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm leading-relaxed">{summary}</p>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <div className="mx-auto w-full max-w-5xl">
-        {hacks.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {hacks.map((h) => (
-              <HackCard
-                key={h.id}
-                hack={h}
-                reactions={reactionsFor(h.id, interactionMap)}
-                alreadyViewed={Boolean(interactionMap.get(h.id)?.has("viewed"))}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   )
 }

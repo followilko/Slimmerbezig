@@ -542,3 +542,78 @@ The tracker is one-shot per page load (cleared on unmount or after the dwell tim
 - Bake the same block into onboarding/checkin (premature — onboarding has no history, checkin already has its own continuity block).
 
 **Consequences:** Ask queries are visibly biased toward tags the user *liked* and away from tags they *dismissed*. We accept the 14-day lookback as a hard window — older signal is implicitly carried by `profile_understanding.summary`. If too few interactions exist, both lists return empty and the block reads "(none)"; the model is instructed to treat that as no constraint.
+
+---
+
+## 2026-05-27 — App shell via `(app)` route group + `AppHeader`
+
+**Context:** The four top-level feeds (Suggested / Peers / Communities / Explore) plus Challenges + secondary pages (Profile, Settings, Saved, Messages, Learning path) all share the same chrome — a sticky top header on the left and the global AskBar on the bottom. The marketing landing, login, `/onboarding`, `/checkin`, and `/auth/*` flows intentionally own the full viewport and must NOT show that chrome. Per-page duplication of the layout would drift instantly.
+
+**Decision:** Wrap every in-app page in a Next.js [route group](https://nextjs.org/docs/app/building-your-application/routing/route-groups) at **`app/(app)/`**. The group's [`layout.tsx`](../app/(app)/layout.tsx) is the single mount point for **`<AppHeader />`** ([components/shell/app-header.tsx](../components/shell/app-header.tsx)) and applies the shell-only background (**`bg-zinc-50`**). The route group has **zero URL impact** — `/for-you`, `/profile`, `/settings`, etc. stay flat. Pages outside the group (`app/page.tsx`, `app/login/`, `app/onboarding/`, `app/checkin/`, `app/auth/*`) remain untouched and keep their full-viewport behaviour.
+
+The header is composed of focused leaves under **`components/shell/`**:
+
+- **`brand-mark.tsx`** — circular logo (lucide `Wind` placeholder, swap for real SVG later).
+- **`primary-nav.tsx`** — client; uses `usePathname()` for the underlined active state. Exports `PRIMARY_NAV_ITEMS` + `PRIMARY_NAV_TRAILING` (the visual divider before Challenges matches the wireframe).
+- **`secondary-menu.tsx`** — server; Create CTA (label flips to "Become a creator" when `!isCreator(profile)`), favorites button with badge, points pill (creator-only), avatar link, hamburger trigger.
+- **`hamburger-menu.tsx`** — client; **`@base-ui/react/menu`** (no shadcn `dropdown-menu` install needed — the project already depends on Base UI). On `< md` viewports it surfaces the primary nav items too, so mobile users still reach every page.
+- **`page-header.tsx`** + **`empty-state.tsx`** — small primitives every shell page reuses for consistent H1 / description / EmptyState rendering.
+
+**Auth gate** lives in the route-group layout: `getViewer()` returns `null` → `redirect('/login')`. **Onboarding gate** lives **per-page** via [`requireOnboarded()`](../lib/auth/onboarding.ts), so **`/profile`** and **`/settings`** stay reachable even before onboarding completes (lets a user recover or delete their account at any time).
+
+**Alternatives:** Per-page header duplication (drifts immediately); a top-level `app/layout.tsx` that branches on `usePathname()` (forces every page that needs full-viewport — login, onboarding — to be an exception); nested layouts under `app/dashboard/` (lock the feeds under a `/dashboard/...` prefix we don't want).
+
+**Consequences:** One mount point for the chrome. Adding a new in-app page is a single file under `app/(app)/.../page.tsx` — header, AskBar, background, gates are inherited. Pages outside the group (login / coach flows) stay isolated. The AskBar's `HIDDEN_PATHS` list is the only other place that needs to know about full-viewport routes — keep that list in sync.
+
+---
+
+## 2026-05-27 — `/for-you` is the post-login landing; relabeled "Suggested" in the nav
+
+**Context:** [ADR 2026-05-27 — `/for-you` is the personal feed URL] chose the URL for the personalised feed. The wireframe relabels that tab to **"Suggested"** and makes it the post-login home. We need authed users to land there from `/`, `/login`, and (for legacy bookmarks) `/dashboard`. The URL itself stays — moving it would break the existing redirect from `finish_onboarding`, the route's RLS-safe data layer, and a stable href the AskBar's renderers point at.
+
+**Decision:** Keep the URL **`/for-you`** unchanged. In **`components/shell/primary-nav.tsx`**, render its label as **"Suggested"**. Update [`lib/supabase/proxy.ts`](../lib/supabase/proxy.ts) so the authed-on-`/login` redirect target is `/for-you` (was `/dashboard`). Update [`app/page.tsx`](../app/page.tsx) to server-redirect authed users to `/for-you`. `/dashboard` becomes a thin `redirect('/profile')` page for legacy bookmarks (see the next ADR).
+
+**Alternatives:** Move the page to `/` (forces the marketing landing into a conditional + breaks ADR 2026-05-27); use `/suggested` and retire `/for-you` (rewrites finish-onboarding redirect, AskBar links, all `revalidatePath` calls in `app/for-you/actions.ts`).
+
+**Consequences:** No URL churn, no broken bookmarks except `/dashboard` which is handled. UI vocabulary becomes "Suggested" (matches the wireframe and the user's mental model); the codebase keeps "For You" in route paths / file names / `revalidatePath` calls for internal consistency. **Extends** ADR 2026-05-27 — `/for-you` is the personal feed URL — it didn't change, just got a friendlier label.
+
+---
+
+## 2026-05-27 — `/dashboard` retired in favour of `/profile` + `/settings`
+
+**Context:** The original [`/dashboard`](../app/dashboard/page.tsx) page mixed three responsibilities — profile read-out (avatar, name, email, locale), session management (sign out), and the danger zone (`delete_my_account()`). It also served as both "post-login landing" and "where I look at my own data," which the new app shell separates cleanly: the landing is the feed (Suggested), and the secondary menu (avatar → `/profile`, hamburger → `/settings`) is the entry into account management.
+
+**Decision:** Replace `app/dashboard/page.tsx` with a single-line **`redirect('/profile')`** server component (keeps legacy bookmarks alive). Delete `app/dashboard/layout.tsx` (auth check now lives in the `(app)` route-group layout). Move `app/dashboard/delete-account-button.tsx` → [`components/settings/delete-account-button.tsx`](../components/settings/delete-account-button.tsx) (unchanged code, new home). Split the old page's content:
+
+- **`/profile`** — read-only: avatar, name, email, sector, role, locale, points-when-creator, LinkedIn URL, and the rolling **`profile_understanding.summary`**. CTAs link to `/onboarding` and `/checkin` for updating signals.
+- **`/settings`** — actions: profile-signal links, sign-out, danger-zone delete.
+
+Neither calls `requireOnboarded()` — a brand-new user must be able to delete or reach onboarding from these pages even if they abandoned the coach mid-flow.
+
+**Alternatives:** Keep `/dashboard` and put the rest of the chrome around it (perpetuates the mixed-responsibility page); rename to `/account` (loses the existing user mental model from the wireframe — "avatar = profile"); merge profile + settings into one long page (forces account-recovery scrolling past read-only data).
+
+**Consequences:** Two thin, single-purpose pages. The proxy's protected-prefix list adds `/profile` and `/settings`; everything else stays. `signOut()` continues to redirect to `/` (anon there sees the landing, no loop).
+
+---
+
+## 2026-05-27 — Force light theme via `next-themes` `forcedTheme="light"`
+
+**Context:** The product spec is white-only — no dark mode toggle, no system preference following. The CSS in [`app/globals.css`](../app/globals.css) already defines dark-mode variables under `.dark`, but `next-themes` was wired with `defaultTheme="system" enableSystem`, so users on dark-mode OS were silently flipped.
+
+**Decision:** Change [`app/providers.tsx`](../app/providers.tsx) `<ThemeProvider>` to `forcedTheme="light"`. `next-themes` then never applies the `.dark` class regardless of system preference or stored cookie. Keep the dark CSS variables in `globals.css` untouched — removal would be its own ADR (and the cost of carrying them is zero).
+
+**Alternatives:** Strip `next-themes` entirely (bigger blast radius — multiple components still import the package indirectly via shadcn); delete the `.dark { … }` block in globals.css (acceptable but loses the option to add a toggle later without re-deriving the tokens); manually set `class="light"` on `<html>` (works but ignores `next-themes`'s `disableTransitionOnChange` smoothing).
+
+**Consequences:** Single source of truth: the `light` token set in `:root`. Adding dark later is a one-line config change — nothing else moves.
+
+---
+
+## 2026-05-27 — Primary nav adds "Explore" = cross-org / public hacks
+
+**Context:** The wireframe introduces a fifth top-level tab — **Explore** — alongside Suggested / Peers / Communities / Challenges. The original IA in [docs/vision.md](vision.md) listed only four. The product's long-term vision is **cross-organisation peer learning** (a marketer at Org A learning from a marketer at Org B), which today's B2B-first launch defers. Explore is the first surface where that cross-org content can land.
+
+**Decision:** Add a top-level **`/explore`** route with the label **"Explore"** in `PRIMARY_NAV_ITEMS`. Semantically: hacks **across organisations**, scoped to platform-public content (`source = curated | external` plus, later, user hacks explicitly marked public). For MVP the page renders an EmptyState — the corpus is too small to surface anything meaningful, and the org-scoping schema deltas (`profiles.organization_id`, public/private hack visibility) are still pending. The route exists so the nav lights up and the future feed has a stable URL.
+
+**Alternatives:** Defer Explore until cross-org schema lands (forces a nav reshuffle later — five-tab muscle memory broken); fold Explore into Communities (conflates "topics I opted into" with "discover beyond my org"); call it "Public" (correct but less inviting copy).
+
+**Consequences:** [docs/glossary.md](glossary.md) adds an **Explore** entry. [docs/data-model.md](data-model.md) notes that the visibility filter on Explore depends on the same pending `organization_id` work as Office peers — the two feeds will gain real content as part of the same migration wave.
