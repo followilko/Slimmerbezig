@@ -633,3 +633,23 @@ Neither calls `requireOnboarded()` — a brand-new user must be able to delete o
 **Alternatives:** Auto-insert challenge with undo (risky — posts without explicit consent); pure-prose link in assistant text (no clickable card, model might still drift off-platform); coach creates the row directly via a `create_challenge` tool (skips edit-before-post).
 
 **Consequences:** Challenge writes stay user-consented via the form. The coach has a clean, on-platform loop when the corpus is thin. `/challenges` is no longer an EmptyState stub — but comments/praise/org-scoping remain in the B2B-MVP migration wave.
+
+---
+
+## 2026-05-27 — Post card design system; “Post” as UI term (dummy data interim)
+
+**Context:** The Suggested feed needed a wireframe-faithful post card (post type + time estimate, structured title with tool icon, author block, social metrics, peer-completion footer, favorite heart) before the B2B schema deltas (`hacks.post_type`, structured title columns, praise/points ledger, org affiliation) are migrated. Product vocabulary is shifting from “hack” to **post** in UI copy and code.
+
+**Decision:**
+1. **UI/code term:** **`Post`** / **`PostCard`** / **`components/post/`** — database table names stay **`hacks`** / **`hack_*`** until a dedicated rename migration.
+2. **Interim data:** Typed dummy rows in [`lib/dummy/posts.ts`](../lib/dummy/posts.ts); **`/for-you`** renders these instead of `get_recommended_hacks()` until real rows can satisfy the card shape.
+3. **Design tokens:** Add semantic **`--favorite`** / **`--points`** CSS variables in [`app/globals.css`](../app/globals.css) (mapped to Tailwind `bg-favorite`, `bg-points`, etc.).
+4. **Primitives:** Ship shadcn-style [`components/ui/badge.tsx`](../components/ui/badge.tsx) for post-type and duration pills.
+5. **Tool icons:** Add **`simple-icons`** dependency; [`components/post/tool-icon.tsx`](../components/post/tool-icon.tsx) maps `ToolSlug` → icon (package icons where available; minimal custom paths for brands absent from the registry, e.g. Photoshop / ChatGPT / Excel).
+6. **Favorite affordance:** Card heart is **visual-only by default** (`PostFavoriteButton` accepts optional `onToggle`) — wiring to `toggleSave(hackId)` is deferred because dummy IDs would FK-violate `hack_interactions.hack_id`.
+7. **Detail stub:** [`app/(app)/hacks/[id]/page.tsx`](../app/(app)/hacks/[id]/page.tsx) resolves dummy posts + `generateMetadata`; full markdown/comments/praise UI deferred.
+8. **`HackViewTracker`** stays off dummy cards (`enableViewTracking` defaults `false` on `PostCard`).
+
+**Alternatives:** Land full SQL migration first (blocked scope); keep legacy minimal `HackCard` (doesn't match wireframe); rename DB tables now (high churn across RPCs/RLS).
+
+**Consequences:** `/for-you` is visually testable end-to-end. Re-wiring to Supabase is a follow-up once schema deltas land. Legacy [`components/feed/hack-card-actions.tsx`](../components/feed/hack-card-actions.tsx) remains for any unmigrated surfaces.

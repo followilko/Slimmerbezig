@@ -7,6 +7,7 @@ Canonical vocabulary — if you invent a synonym in UI copy or code comments, al
 | Term | Definition |
 |------|-------------|
 | **Hack** | A concrete **try-this-today** AI tip (`hacks.title/summary/body_md`). Rows are **`draft`/`published`/`archived`**; matching uses joined **`tags`** via **`hack_tags`**. Carries **post type**, **goal**, **tool**, **AI capability** (see below). |
+| **Post** | Canonical **UI/code term** for a hack card or detail surface (`Post`, `PostCard`, `components/post/`). The database still uses **`hacks`** / **`hack_*`** table names until a future migration. See ADR 2026-05-27 — Post card design system. |
 | **Challenge** | A user-posed goal such as **“help me automate X.”** Stored in **`challenges`** with optional **`challenge_tags`**. Answers come as **comments** and/or **hack links** (existing or self-promoted). |
 | **Frustration** | Short free-text problem statement (**`user_frustrations.body`**) plus **`user_frustration_tags`**. Feeds the recommendation overlap. |
 | **Weekly check-in** | Periodic status note (**`weekly_checkins`**, one row per user per **`week_start`**) plus **`weekly_checkin_tags`** for “what consumed my week.” Feeds **`get_recommended_hacks`**. |
@@ -42,7 +43,7 @@ Canonical vocabulary — if you invent a synonym in UI copy or code comments, al
 | Term | Definition |
 |------|-------------|
 | **App shell** | The chrome rendered by **`app/(app)/layout.tsx`**: sticky top `<AppHeader />` (brand + primary nav + secondary menu) and the globally-mounted `<AskBar />`. All in-app pages (Suggested / Peers / Communities / Explore / Challenges / Profile / Settings / Saved / Messages / Learning path / Become a creator / Hacks/new) inherit it. Login / onboarding / checkin / auth opt out by living outside the route group. |
-| **Suggested** | UI label for the personalised feed at **`/for-you`** — uses `get_recommended_hacks` v2 + the user's tag overlap. Same route as the original "For You" decision, just rebadged for the wireframe. |
+| **Suggested** | UI label for the personalised feed at **`/for-you`**. Target: `get_recommended_hacks` v2 + tag overlap. **Interim (2026-05-27):** renders typed dummy posts from **`lib/dummy/posts.ts`** until B2B schema deltas (`post_type`, structured title, praise/points) land. |
 | **Explore** | Top-level **`/explore`** route — discovery surface for hacks **across organisations**. Empty until cross-org schema and a richer corpus land; conceptually distinct from **Communities** (opt-in topic clusters) and **Office peers** (single-org colleagues). |
 | **Primary nav** | The five-tab pill in the header: **Suggested / Peers / Communities / Explore · Challenges** (`·` is a visual divider, not a separate concept). Defined in **`components/shell/primary-nav.tsx`**. |
 | **Secondary menu** | The right side of the header: Create CTA (or "Become a creator"), favorites heart (saved-hacks badge), points pill (creator-only), avatar (→ `/profile`), hamburger (→ Account settings / Messages / Learning path / Sign out). |
