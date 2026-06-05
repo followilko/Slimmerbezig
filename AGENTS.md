@@ -59,6 +59,7 @@ Front-end motion is centred on **`gsap`** (+ **`ScrollTrigger`**, **`CustomEase`
 | You introduce a new domain term | [docs/glossary.md](docs/glossary.md) |
 | New env vars or deploy steps | [README.md](README.md) |
 | New “always” rules for coding agents | **This file** |
+| UI tokens, grid, post-card / brand rules | [docs/design-system.md](docs/design-system.md) |
 
 ---
 

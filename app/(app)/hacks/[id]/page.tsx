@@ -1,13 +1,11 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
-import { PostAuthor } from "@/components/post/post-author"
-import { PostMetaRow } from "@/components/post/post-meta-row"
-import { PostSocialRow } from "@/components/post/post-social-row"
-import { PostTitle } from "@/components/post/post-title"
+import { PostCard } from "@/components/post/post-card"
 import { EmptyStateCard } from "@/components/shell/empty-state"
 import { PageHeader, PageShell } from "@/components/shell/page-header"
 import { getPostMeta } from "@/lib/dummy/posts"
+import { loadReactionMap } from "@/lib/posts/feed-items"
 import { createClient } from "@/lib/supabase/server"
 
 type PageProps = {
@@ -18,9 +16,14 @@ async function loadHack(id: string) {
   const supabase = await createClient()
   const { data } = await supabase
     .from("hacks")
-    .select("id, title, status")
+    .select("id, title, summary, status")
     .eq("id", id)
-    .maybeSingle<{ id: string; title: string; status: string }>()
+    .maybeSingle<{
+      id: string
+      title: string
+      summary: string | null
+      status: string
+    }>()
   return data
 }
 
@@ -37,12 +40,8 @@ export default async function PostDetailPage({ params }: PageProps) {
   const { id } = await params
 
   const supabase = await createClient()
-  const [{ data: hack }, { data: { user } }] = await Promise.all([
-    supabase
-      .from("hacks")
-      .select("id, title, status")
-      .eq("id", id)
-      .maybeSingle<{ id: string; title: string; status: string }>(),
+  const [hack, { data: { user } }] = await Promise.all([
+    loadHack(id),
     supabase.auth.getUser(),
   ])
 
@@ -52,35 +51,38 @@ export default async function PostDetailPage({ params }: PageProps) {
   if (!meta) notFound()
 
   let saved = false
+  let reactions = { helpful: false, notHelpful: false }
   if (user) {
-    const { data: savedRow } = await supabase
-      .from("hack_interactions")
-      .select("hack_id")
-      .eq("user_id", user.id)
-      .eq("hack_id", hack.id)
-      .eq("kind", "saved")
-      .maybeSingle()
+    const [{ data: savedRow }, reactionMap] = await Promise.all([
+      supabase
+        .from("hack_interactions")
+        .select("hack_id")
+        .eq("user_id", user.id)
+        .eq("hack_id", hack.id)
+        .eq("kind", "saved")
+        .maybeSingle(),
+      loadReactionMap(user.id, [hack.id]),
+    ])
     saved = Boolean(savedRow)
+    reactions = reactionMap.get(hack.id) ?? reactions
   }
 
   const post = { id: hack.id, ...meta }
 
   return (
-    <PageShell className="max-w-3xl">
+    <PageShell>
       <PageHeader title={hack.title} />
 
-      <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-        <PostMetaRow post={post} saved={saved} />
-        <div className="mt-4 space-y-4">
-          <PostTitle post={post} />
-          <PostAuthor post={post} />
-          <PostSocialRow metrics={post.metrics} />
-        </div>
-      </div>
+      <PostCard
+        post={post}
+        summary={hack.summary}
+        saved={saved}
+        reactions={reactions}
+      />
 
       <EmptyStateCard
         title="Detail page komt later"
-        description="De volledige post-pagina (markdown body, comments, praise, complete-flow) volgt in een latere sprint. Voor nu kun je de kaart-layout en dummy-data valideren."
+        description="De volledige post-pagina (markdown body, comments, praise, complete-flow) volgt in een latere sprint."
       />
     </PageShell>
   )

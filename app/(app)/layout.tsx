@@ -22,7 +22,7 @@ export default async function AppShellLayout({
         savedCount={savedCount}
         pointsCount={0}
       />
-      <main className="flex flex-1 flex-col pb-32">{children}</main>
+      <main className="flex w-full flex-1 flex-col pb-32">{children}</main>
     </div>
   )
 }

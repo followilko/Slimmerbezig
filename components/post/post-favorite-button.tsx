@@ -1,9 +1,9 @@
 "use client"
 
-import { Heart } from "lucide-react"
 import { useOptimistic, useTransition } from "react"
 
 import { togglePostFavorite } from "@/app/(app)/posts/actions"
+import { IconHeart } from "@/components/icons/post-card/icon-heart"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -61,7 +61,7 @@ export function PostFavoriteButton({
         className
       )}
     >
-      <Heart className={cn("size-4", optimisticSaved && "fill-current")} />
+      <IconHeart className="size-5" />
     </Button>
   )
 }

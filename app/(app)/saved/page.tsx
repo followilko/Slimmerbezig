@@ -2,14 +2,22 @@ import { PostCard } from "@/components/post/post-card"
 import { EmptyStateCard } from "@/components/shell/empty-state"
 import { PageHeader, PageShell } from "@/components/shell/page-header"
 import { requireOnboarded } from "@/lib/auth/onboarding"
-import { getPostMeta } from "@/lib/dummy/posts"
 import { getViewer } from "@/lib/profile/get-viewer-profile"
+import {
+  buildFeedItems,
+  loadReactionMap,
+  type HackFeedRow,
+} from "@/lib/posts/feed-items"
 import { createClient } from "@/lib/supabase/server"
 
 type SavedRow = {
   hack_id: string
   created_at: string
-  hacks: { id: string; status: string } | null
+  hacks: {
+    id: string
+    status: string
+    summary: string | null
+  } | null
 }
 
 export default async function SavedPage() {
@@ -19,11 +27,9 @@ export default async function SavedPage() {
   const userId = viewer!.userId
   const supabase = await createClient()
 
-  // Join hack_interactions → hacks so we can filter out archived/draft rows
-  // and order by when the user saved them (newest first).
   const { data } = await supabase
     .from("hack_interactions")
-    .select("hack_id, created_at, hacks!inner(id, status)")
+    .select("hack_id, created_at, hacks!inner(id, status, summary)")
     .eq("user_id", userId)
     .eq("kind", "saved")
     .order("created_at", { ascending: false })
@@ -32,12 +38,26 @@ export default async function SavedPage() {
     (r) => r.hacks?.status === "published"
   )
 
-  const posts = rows.flatMap((r) => {
-    const meta = getPostMeta(r.hack_id)
-    if (!meta) return []
-    return [{ id: r.hack_id, ...meta }]
+  const hacks: HackFeedRow[] = rows.flatMap((r) => {
+    if (!r.hacks) return []
+    return [
+      {
+        id: r.hack_id,
+        title: "",
+        summary: r.hacks.summary,
+        status: r.hacks.status,
+        created_at: r.created_at,
+      },
+    ]
   })
-  const count = posts.length
+
+  const reactionMap = await loadReactionMap(
+    userId,
+    hacks.map((h) => h.id)
+  )
+  const savedIds = new Set(hacks.map((h) => h.id))
+  const items = buildFeedItems(hacks, savedIds, reactionMap)
+  const count = items.length
 
   return (
     <PageShell>
@@ -53,12 +73,18 @@ export default async function SavedPage() {
       {count === 0 ? (
         <EmptyStateCard
           title="Nog niets opgeslagen"
-          description="Tik op het hartje op een post in Suggested — die verschijnt hier en de teller in de header loopt mee."
+          description="Tik op het hartje op een post in Explore — die verschijnt hier en de teller in de header loopt mee."
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {posts.map((post) => (
-            <PostCard key={post.id} post={post} saved />
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map(({ post, summary, saved, reactions }) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              summary={summary}
+              saved={saved}
+              reactions={reactions}
+            />
           ))}
         </div>
       )}

@@ -36,6 +36,7 @@ export async function setReaction(
   }
 
   revalidatePath("/for-you")
+  revalidatePath("/explore")
   return { ok: true }
 }
 
@@ -97,6 +98,8 @@ export async function toggleSave(
       .eq("kind", "saved")
     if (error) return { ok: false, reason: error.message }
     revalidatePath("/for-you")
+    revalidatePath("/explore")
+    revalidatePath("/saved")
     return { ok: true, saved: false }
   }
 
@@ -105,5 +108,7 @@ export async function toggleSave(
     .insert({ user_id: user.id, hack_id: hackId, kind: "saved" })
   if (error) return { ok: false, reason: error.message }
   revalidatePath("/for-you")
+  revalidatePath("/explore")
+  revalidatePath("/saved")
   return { ok: true, saved: true }
 }

@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/server"
  * import from a stable path. RLS on public.hack_interactions scopes by
  * auth.uid(); FK to public.hacks rejects stale/dummy ids.
  *
- * Revalidates: /for-you, /saved, and the root layout (for the header badge).
+ * Revalidates: /explore, /for-you, /saved, and the root layout (header badge).
  * The detail page is path-revalidated by the dynamic route's own server data.
  */
 export async function togglePostFavorite(
@@ -40,6 +40,7 @@ export async function togglePostFavorite(
       .eq("kind", "saved")
     if (error) return { ok: false, reason: error.message }
 
+    revalidatePath("/explore")
     revalidatePath("/for-you")
     revalidatePath("/saved")
     revalidatePath("/", "layout")
@@ -51,6 +52,7 @@ export async function togglePostFavorite(
     .insert({ user_id: user.id, hack_id: hackId, kind: "saved" })
   if (error) return { ok: false, reason: error.message }
 
+  revalidatePath("/explore")
   revalidatePath("/for-you")
   revalidatePath("/saved")
   revalidatePath("/", "layout")

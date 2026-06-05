@@ -14,6 +14,7 @@ Schemas live as SQL-first sources of truth:
 | [supabase/04_delete_account.sql](../supabase/04_delete_account.sql) | Self-serve testing reset: **`delete_my_account()`** — deletes **`auth.users`** for the caller; cascades **`profiles`** and user-owned rows (see ADR 2026-05-27) |
 | [supabase/08_seed_dummy_posts.sql](../supabase/08_seed_dummy_posts.sql) | Idempotent seed: 10 curated `hacks` rows + sector/tool tags + `hack_tags` links. Hardcoded UUIDs (`aaaaaaaa-0001-0001-0001-00000000000N`) mirror **`POST_META_BY_ID`** in [`lib/dummy/posts.ts`](../lib/dummy/posts.ts) so DB rows decorate with TS-only metadata (post type, minutes, author, peers, metrics) until the B2B schema deltas below land. See ADR 2026-05-28 — Dummy posts seeded as curated hacks. |
 | [supabase/09_find_hacks_v2.sql](../supabase/09_find_hacks_v2.sql) | **`find_hacks` v2** (same signature): tier-1 tag-overlap on query tokens × `hack_tags`, tier-2 strict FTS (`websearch_to_tsquery`), tier-3 gated OR fallback with inline stop-word strip + sanitised `to_tsquery`. Recent-published fallback for empty / all-stop-word queries only; substantive no-match queries return an empty set. See ADR 2026-05-28 — `find_hacks` v2. |
+| [supabase/10_brand_assets_storage.sql](../supabase/10_brand_assets_storage.sql) | Storage bucket **`brand-assets`** (public read) for post-card tool logos; colors live in [`lib/brands/manifest.ts`](../lib/brands/manifest.ts). See [design-system.md](design-system.md). |
 
 See also [decisions.md](decisions.md) for *why* (split files, ledger model, ESCO-ready tags).
 
