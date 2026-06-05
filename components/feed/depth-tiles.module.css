@@ -1,0 +1,63 @@
+.depthTiles {
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  position: relative;
+  overflow: clip;
+}
+
+.depthTilesCollection {
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  position: relative;
+  width: 100%;
+}
+
+.depthTilesList {
+  place-items: center;
+  display: grid;
+  width: 100%;
+}
+
+.depthTilesItem {
+  will-change: transform, opacity, filter;
+  grid-area: 1 / 1;
+  justify-content: center;
+  align-items: center;
+  width: max-content;
+  height: max-content;
+  display: flex;
+}
+
+.tileCard {
+  width: clamp(20rem, 32vw, 30rem);
+  position: relative;
+  transition: transform 0.4s cubic-bezier(0.35, 1.5, 0.6, 1);
+  transform: scale(1) rotate(0.001deg);
+}
+
+.depthTilesItem:hover .tileCard {
+  transform: scale(0.95) rotate(0.001deg);
+}
+
+.depthTilesItem[data-depth-tiles-item-status="not-active"] {
+  pointer-events: none;
+}
+
+.reducedMotionStack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 1;
+  padding: 1rem;
+}
+
+.reducedMotionCard {
+  width: clamp(20rem, 32vw, 30rem);
+}

@@ -39,7 +39,7 @@ Quick orientation: visions and trade-offs live in [vision.md](vision.md) & [deci
 
 Shell + stubs are scaffolded (see "Done"). Content for each surface still needs to land:
 
-- **`/for-you`** ("Suggested") — shipped; renders `PostCard` grid from DB rows + TS metadata. Card metrics (likes/comments/points) remain TS-only until praise/points and comments schemas land.
+- **`/for-you`** ("Suggested") — shipped; full-viewport **depth tiles** GSAP carousel of six recommended **`PostCard`**s ([`components/feed/suggested-depth-feed.tsx`](../components/feed/suggested-depth-feed.tsx)); falls back to grid when `< 2` items. **`/explore`** keeps the scannable grid. Card metrics (likes/comments/points) remain TS-only until praise/points and comments schemas land.
 - **`/communities`** — sector / topic / tool clusters with hack lists. Shell-stubbed.
 - **`/office`** ("Peers") — same `organization_id` feed. Shell-stubbed; blocked on `organizations` migration.
 - **`/explore`** — cross-org / public hacks. Shell-stubbed; blocked on cross-org visibility schema + corpus.

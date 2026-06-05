@@ -695,3 +695,21 @@ Neither calls `requireOnboarded()` — a brand-new user must be able to delete o
 **Alternatives:** `pg_trgm` typo tolerance (defer — corpus too small); `pgvector` embeddings (defer); `find_hacks_count` second RPC (unnecessary — `hacks.length` is enough); promote stop-words to a table now (defer until list grows past ~30).
 
 **Consequences:** Natural-language Ask queries like *"photoshop ai tips"* resolve via tier-1 tag-overlap regardless of filler words. Search and Ask share the same RPC — both improve together. Stop-word list is inline in the function; promote to `public.search_stopwords` when it grows. Model upgrade (`gpt-4o-mini` → newer) remains a separate decision.
+
+---
+
+## 2026-06-05 — Suggested depth tiles carousel (`/for-you`)
+
+**Context:** Suggested and Explore had duplicated grid layouts. Product direction called for a distinctive Suggested surface — a full-viewport infinite 3D carousel — while Explore remains the scannable list view. An Osmo "depth tiles" GSAP script was chosen as the animation reference; the project already registers GSAP + ScrollTrigger + CustomEase via [`lib/anim/registerGsap.ts`](../lib/anim/registerGsap.ts).
+
+**Decision:**
+1. **Port the Osmo depth-tiles script** into a client component [`components/feed/depth-tiles.tsx`](../components/feed/depth-tiles.tsx) — preserve `data-depth-tiles-*` attributes, the `"depth"` CustomEase curve, and tuning constants (`xMultiplier`, `backScale`, `moveDuration`, etc.). Init runs in `useEffect` scoped to the component root; cleanup kills timelines, delayed calls, ScrollTrigger, and pointer listeners on unmount.
+2. **Natural PostCard sizing** — tile wrapper width `clamp(20rem, 32vw, 30rem)`; no forced square aspect ratio. Reuse **`PostCard`** unchanged.
+3. **Suggested feed wrapper** [`components/feed/suggested-depth-feed.tsx`](../components/feed/suggested-depth-feed.tsx) maps **`FeedPostItem[]`** to tiles; **`SUGGESTED_TILE_COUNT = 6`**. **`enableViewTracking`** stays off in the carousel (IntersectionObserver would over-fire when all tiles are mounted).
+4. **Shell fit** — loop container uses `min-h-[calc(100dvh-4.5rem)]` under the sticky header and `-mb-32` locally to neutralise main bottom padding so the carousel centres while the AskBar still floats above.
+5. **Accessibility / edge cases** — `prefers-reduced-motion: reduce` renders a single static card; fewer than two recommended posts falls back to the existing simple grid (script requires ≥2 tiles).
+6. **Pointer events** — CSS sets `pointer-events: none` on `[data-depth-tiles-item-status="not-active"]` so only the centred card is interactive; hover pauses the loop per the original script.
+
+**Alternatives:** Keep grid on both Suggested and Explore (rejected — no differentiated IA); Barba/page-transition carousel (rejected — conflicts with App Router per AGENTS.md); force square tiles (rejected — PostCard has natural height).
+
+**Consequences:** `/for-you` is a single-card-at-a-time browsing mode; list scanning moves to **`/explore`**. Active-only view tracking and "matched because…" reason chips are deferred. ScrollTrigger instances must be cleaned up on route change to avoid duplicates alongside Lenis.
