@@ -15,12 +15,20 @@
   display: flex;
   position: relative;
   width: 100%;
+  padding-bottom: 2.75rem;
 }
 
 .depthTilesList {
   place-items: center;
   display: grid;
   width: 100%;
+}
+
+.depthTilesItem[data-depth-tiles-item-peer-phase="hidden"] [data-post-peer-strip-mode="carousel"],
+.depthTilesItem:not([data-depth-tiles-item-peer-phase="shown"]):not([data-depth-tiles-item-peer-phase="hiding"]) [data-post-peer-strip-mode="carousel"] {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .depthTilesItem {

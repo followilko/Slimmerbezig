@@ -9,17 +9,27 @@ import {
 } from "react"
 
 import gsap from "gsap"
-import CustomEase from "gsap/CustomEase"
 import ScrollTrigger from "gsap/ScrollTrigger"
 
 import { registerGsap } from "@/lib/anim/registerGsap"
 import { cn } from "@/lib/utils"
 
+import {
+  DEPTH_TILES_EASE,
+  DEPTH_TILES_MOVE_DURATION,
+  DEPTH_TILES_PAUSE_DURATION,
+  DEPTH_TILES_PEER_ENTER_AT,
+  DEPTH_TILES_PEER_EXIT_LEAD_TIME,
+  DEPTH_TILES_START_DELAY,
+  ensureDepthTilesEase,
+} from "./depth-tiles-motion"
 import styles from "./depth-tiles.module.css"
 
 type DepthTilesProps = {
   children: ReactNode
   className?: string
+  /** Fires with the front/active tile index whenever it changes (and on init). */
+  onActiveIndexChange?: (index: number) => void
 }
 
 function subscribeReducedMotion(onStoreChange: () => void) {
@@ -36,7 +46,10 @@ function getReducedMotionServerSnapshot() {
   return false
 }
 
-function initDepthTilesContainer(container: HTMLElement) {
+function initDepthTilesContainer(
+  container: HTMLElement,
+  onActiveIndexChange?: (index: number) => void
+) {
   const list = container.querySelector<HTMLElement>("[data-depth-tiles-list]")
   if (!list) return () => {}
 
@@ -51,9 +64,11 @@ function initDepthTilesContainer(container: HTMLElement) {
   const sideRotateY = 5
   const perspective = 75
 
-  const moveDuration = 1.5
-  const startDelay = 0.5
-  const pauseDuration = 0.125
+  const moveDuration = DEPTH_TILES_MOVE_DURATION
+  const startDelay = DEPTH_TILES_START_DELAY
+  const pauseDuration = DEPTH_TILES_PAUSE_DURATION
+  const peerExitLeadTime = DEPTH_TILES_PEER_EXIT_LEAD_TIME
+  const peerEnterAt = DEPTH_TILES_PEER_ENTER_AT
 
   const state = { progress: 0 }
 
@@ -62,8 +77,69 @@ function initDepthTilesContainer(container: HTMLElement) {
   let hasStarted = false
   let stepTimeline: gsap.core.Timeline | undefined
   let delayedCall: gsap.core.Tween | undefined
+  let exitDelayedCall: gsap.core.Tween | undefined
   let startDelayedCall: gsap.core.Tween | undefined
   let activeTileIndex = -1
+
+  function setPeerPhase(index: number, phase: "shown" | "hiding" | "hidden") {
+    tiles[index]?.setAttribute("data-depth-tiles-item-peer-phase", phase)
+  }
+
+  function syncPeerPhasesForFront(frontIndex: number) {
+    tiles.forEach((_, index) => {
+      setPeerPhase(index, index === frontIndex ? "shown" : "hidden")
+    })
+  }
+
+  function scheduleNextStep() {
+    exitDelayedCall?.kill()
+    delayedCall?.kill()
+
+    const frontIndex = getActiveIndex()
+
+    exitDelayedCall = gsap.delayedCall(
+      Math.max(0, pauseDuration - peerExitLeadTime),
+      () => {
+        setPeerPhase(frontIndex, "hiding")
+      }
+    )
+
+    delayedCall = gsap.delayedCall(pauseDuration, beginMove)
+  }
+
+  function beginMove() {
+    if (!isActive || isHovering) return
+
+    const targetProgress = state.progress + 1
+    const incomingFront =
+      ((Math.round(targetProgress) % tileCount) + tileCount) % tileCount
+
+    stepTimeline?.kill()
+    stepTimeline = gsap.timeline({
+      paused: true,
+      onComplete: () => {
+        syncPeerPhasesForFront(getActiveIndex())
+        if (isActive && !isHovering) {
+          scheduleNextStep()
+        }
+      },
+    })
+
+    stepTimeline.to(state, {
+      progress: targetProgress,
+      duration: moveDuration,
+      ease: DEPTH_TILES_EASE,
+      onUpdate: renderDepth,
+    })
+
+    stepTimeline.call(
+      () => syncPeerPhasesForFront(incomingFront),
+      undefined,
+      peerEnterAt
+    )
+
+    stepTimeline.play()
+  }
 
   gsap.set(list, { perspective: `${perspective}em` })
   gsap.set(tiles, {
@@ -95,6 +171,8 @@ function initDepthTilesContainer(container: HTMLElement) {
         index === activeTileIndex ? "active" : "not-active"
       )
     })
+
+    onActiveIndexChange?.(currentActiveIndex)
   }
 
   function renderDepth() {
@@ -129,32 +207,14 @@ function initDepthTilesContainer(container: HTMLElement) {
   }
 
   function goToNextTile() {
-    if (!isActive || isHovering) return
-
-    stepTimeline?.kill()
-    stepTimeline = gsap.timeline({
-      paused: true,
-      onComplete: () => {
-        if (isActive && !isHovering) {
-          delayedCall = gsap.delayedCall(pauseDuration, goToNextTile)
-        }
-      },
-    })
-
-    stepTimeline.to(state, {
-      progress: state.progress + 1,
-      duration: moveDuration,
-      ease: "depth",
-      onUpdate: renderDepth,
-    })
-
-    stepTimeline.play()
+    scheduleNextStep()
   }
 
   function pauseDepth() {
     isActive = false
     stepTimeline?.pause()
     delayedCall?.pause()
+    exitDelayedCall?.pause()
     startDelayedCall?.pause()
   }
 
@@ -171,13 +231,15 @@ function initDepthTilesContainer(container: HTMLElement) {
     if (stepTimeline && stepTimeline.progress() < 1) {
       stepTimeline.play()
     } else {
-      goToNextTile()
+      exitDelayedCall?.play()
+      delayedCall?.play()
     }
   }
 
   function handleHoverStart() {
     isHovering = true
     delayedCall?.pause()
+    exitDelayedCall?.pause()
     startDelayedCall?.pause()
   }
 
@@ -193,7 +255,8 @@ function initDepthTilesContainer(container: HTMLElement) {
     if (stepTimeline && stepTimeline.progress() < 1) {
       stepTimeline.play()
     } else {
-      goToNextTile()
+      exitDelayedCall?.play()
+      delayedCall?.play()
     }
   }
 
@@ -215,6 +278,7 @@ function initDepthTilesContainer(container: HTMLElement) {
   const syncLayout = () => {
     if (tiles[0].offsetWidth <= 0) return
     renderDepth()
+    syncPeerPhasesForFront(getActiveIndex())
     ScrollTrigger.refresh()
   }
 
@@ -243,6 +307,7 @@ function initDepthTilesContainer(container: HTMLElement) {
     window.removeEventListener("resize", onResize)
     stepTimeline?.kill()
     delayedCall?.kill()
+    exitDelayedCall?.kill()
     startDelayedCall?.kill()
     scrollTrigger.kill()
     list.removeEventListener("pointerover", onPointerOver)
@@ -251,7 +316,11 @@ function initDepthTilesContainer(container: HTMLElement) {
   }
 }
 
-export function DepthTiles({ children, className }: DepthTilesProps) {
+export function DepthTiles({
+  children,
+  className,
+  onActiveIndexChange,
+}: DepthTilesProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const reducedMotion = useSyncExternalStore(
     subscribeReducedMotion,
@@ -266,13 +335,10 @@ export function DepthTiles({ children, className }: DepthTilesProps) {
     if (!container || tiles.length < 2) return
 
     registerGsap()
+    ensureDepthTilesEase()
 
-    if (!CustomEase.get("depth")) {
-      CustomEase.create("depth", "M0,0 C0.6,0 0,1 1,1")
-    }
-
-    return initDepthTilesContainer(container)
-  }, [reducedMotion, tiles.length])
+    return initDepthTilesContainer(container, onActiveIndexChange)
+  }, [reducedMotion, tiles.length, onActiveIndexChange])
 
   if (tiles.length < 2) {
     return null
@@ -307,6 +373,9 @@ export function DepthTiles({ children, className }: DepthTilesProps) {
               data-depth-tiles-item
               data-depth-tiles-item-status={
                 index === 0 ? "active" : "not-active"
+              }
+              data-depth-tiles-item-peer-phase={
+                index === 0 ? "shown" : "hidden"
               }
               className={styles.depthTilesItem}
             >
