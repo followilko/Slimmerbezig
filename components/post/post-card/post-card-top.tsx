@@ -1,6 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { POST_TYPE_LABEL, type Post } from "@/lib/dummy/posts"
-import { cn } from "@/lib/utils"
 
 import { PostFavoriteButton } from "../post-favorite-button"
 
@@ -44,12 +43,7 @@ export function PostCardTop({
         >
           {POST_TYPE_LABEL[post.postType]}
         </span>
-        <span
-          className={cn(
-            "inline-flex h-[1.75rem] items-center rounded-full bg-white/90 px-3 text-xs font-medium",
-            "text-[color:var(--post-brand-on-secondary)]"
-          )}
-        >
+        <span className="inline-flex h-[1.75rem] items-center rounded-full bg-white/90 px-3 text-xs font-medium text-zinc-900">
           {post.estimatedMinutes} min
         </span>
       </div>
@@ -57,7 +51,7 @@ export function PostCardTop({
       <PostFavoriteButton
         postId={post.id}
         saved={saved}
-        className="size-12 shrink-0 border-white/90 bg-white text-[color:var(--post-brand-on-secondary)] hover:bg-white/90"
+        className="size-12 shrink-0"
       />
     </div>
   )

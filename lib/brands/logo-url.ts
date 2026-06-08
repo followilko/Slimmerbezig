@@ -10,12 +10,9 @@ export function brandLogoStorageUrl(logoPath: string): string {
   return `${base}/storage/v1/object/public/${BRAND_ASSETS_BUCKET}/${logoPath}`
 }
 
-/** Local dev fallback when Storage object is missing (same slug layout). */
+/** Local fallback when Storage object is missing — flat `public/brands/` file. */
 export function brandLogoFallbackUrl(brand: BrandDefinition): string {
-  if (brand.logoPath === "_fallback/logo.svg") {
-    return "/brands/_fallback/logo.svg"
-  }
-  return `/brands/${brand.slug}/logo.svg`
+  return `/brands/${brand.logoPath}`
 }
 
 export function brandLogoUrls(brand: BrandDefinition) {

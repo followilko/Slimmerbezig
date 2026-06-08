@@ -17,6 +17,7 @@ export function PostCard({
   className,
   enableViewTracking = false,
   alreadyViewed = false,
+  peerStripMode = "static",
 }: {
   post: Post
   summary?: string | null
@@ -25,6 +26,7 @@ export function PostCard({
   className?: string
   enableViewTracking?: boolean
   alreadyViewed?: boolean
+  peerStripMode?: "static" | "carousel"
 }) {
   const brand = getBrand(post.title.tool.slug)
   const reactionState = reactions ?? { helpful: false, notHelpful: false }
@@ -36,6 +38,7 @@ export function PostCard({
         <HackViewTracker hackId={post.id} alreadyViewed={alreadyViewed} />
       ) : null}
 
+      {/* #2 Card body. (#1 background light lives on the feed, not the card.) */}
       <article
         data-brand={brand.slug}
         className="relative flex h-full flex-col gap-4 overflow-hidden rounded-[2rem] p-4 shadow-sm transition-shadow hover:shadow-md"
@@ -50,7 +53,7 @@ export function PostCard({
         />
       </article>
 
-      <PostPeerStrip post={post} />
+      <PostPeerStrip post={post} mode={peerStripMode} />
     </div>
   )
 }

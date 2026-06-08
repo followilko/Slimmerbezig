@@ -26,10 +26,9 @@ insert into public.tags (slug, label, kind) values
   ('photoshop', 'Photoshop', 'tool'),
   ('figma',     'Figma',     'tool'),
   ('framer',    'Framer',    'tool'),
-  ('notion',    'Notion',    'tool'),
-  ('zoom',      'Zoom',      'tool'),
   ('cursor',    'Cursor',    'tool'),
-  ('claude',    'Claude',    'tool')
+  ('dovetail',  'Dovetail',  'tool'),
+  ('lovable',   'Lovable',   'tool')
 on conflict (slug) do nothing;
 
 -- ─── 3. Hacks (10 rows with hardcoded UUIDs) ────────────────────────────────
@@ -49,8 +48,8 @@ values
   (
     'aaaaaaaa-0001-0001-0001-000000000002',
     null, 'curated',
-    'how to batch-export social assets with generative fill in Photoshop',
-    'Schaal één hero-asset naar alle social-formats en laat generative fill de randen oplossen.',
+    'how to build a working web app from one prompt in Lovable',
+    'Beschrijf je idee in gewone taal en laat Lovable een werkende web-app genereren — daarna verfijn je per component.',
     'Eerste sprint-voorbeeld. Volledige body komt in een latere sprint.',
     'published'
   ),
@@ -81,24 +80,24 @@ values
   (
     'aaaaaaaa-0001-0001-0001-000000000006',
     null, 'curated',
-    'how to summarise meeting notes into action items in Notion',
-    'Een AI-block dat ruwe meeting-notes herschrijft naar duidelijke owners en deadlines.',
+    'how to turn user interviews into tagged insights in Dovetail',
+    'Upload je interviews en laat AI transcripten taggen, zodat thema''s en quotes meteen vindbaar zijn.',
     'Eerste sprint-voorbeeld. Volledige body komt in een latere sprint.',
     'published'
   ),
   (
     'aaaaaaaa-0001-0001-0001-000000000007',
     null, 'curated',
-    'how to build an AI-powered weekly review template in Notion',
-    'Een template dat met één klik je week samenvat op basis van je database-entries.',
+    'how to refactor a legacy module with agent mode in Cursor',
+    'Laat agent mode een verouderde module herstructureren — jij stuurt het plan en reviewt de diff.',
     'Eerste sprint-voorbeeld. Volledige body komt in een latere sprint.',
     'published'
   ),
   (
     'aaaaaaaa-0001-0001-0001-000000000008',
     null, 'curated',
-    'how to auto-summarise calls with AI Companion in Zoom',
-    'Zet AI Companion aan en krijg na elke call een gestructureerde samenvatting + next steps.',
+    'how to prototype an internal tool without code in Lovable',
+    'Bouw zonder code een intern tool-prototype dat je team meteen kan testen en aanscherpen.',
     'Eerste sprint-voorbeeld. Volledige body komt in een latere sprint.',
     'published'
   ),
@@ -113,8 +112,8 @@ values
   (
     'aaaaaaaa-0001-0001-0001-000000000010',
     null, 'curated',
-    'how to run a structured code review on pull requests in Claude',
-    'Een herhaalbare review-prompt die security, performance en leesbaarheid afdekt.',
+    'how to cluster survey responses into themes in Dovetail',
+    'Laat AI open survey-antwoorden clusteren tot heldere thema''s met representatieve quotes.',
     'Eerste sprint-voorbeeld. Volledige body komt in een latere sprint.',
     'published'
   )
@@ -132,15 +131,15 @@ on conflict (id) do update set
 with mapping(hack_id, sector_slug, tool_slug) as (
   values
     ('aaaaaaaa-0001-0001-0001-000000000001'::uuid, 'design',      'photoshop'),
-    ('aaaaaaaa-0001-0001-0001-000000000002'::uuid, 'design',      'photoshop'),
+    ('aaaaaaaa-0001-0001-0001-000000000002'::uuid, 'design',      'lovable'),
     ('aaaaaaaa-0001-0001-0001-000000000003'::uuid, 'design',      'figma'),
     ('aaaaaaaa-0001-0001-0001-000000000004'::uuid, 'marketing',   'figma'),
     ('aaaaaaaa-0001-0001-0001-000000000005'::uuid, 'design',      'framer'),
-    ('aaaaaaaa-0001-0001-0001-000000000006'::uuid, 'operations',  'notion'),
-    ('aaaaaaaa-0001-0001-0001-000000000007'::uuid, 'operations',  'notion'),
-    ('aaaaaaaa-0001-0001-0001-000000000008'::uuid, 'operations',  'zoom'),
+    ('aaaaaaaa-0001-0001-0001-000000000006'::uuid, 'operations',  'dovetail'),
+    ('aaaaaaaa-0001-0001-0001-000000000007'::uuid, 'engineering', 'cursor'),
+    ('aaaaaaaa-0001-0001-0001-000000000008'::uuid, 'operations',  'lovable'),
     ('aaaaaaaa-0001-0001-0001-000000000009'::uuid, 'engineering', 'cursor'),
-    ('aaaaaaaa-0001-0001-0001-000000000010'::uuid, 'engineering', 'claude')
+    ('aaaaaaaa-0001-0001-0001-000000000010'::uuid, 'design',      'dovetail')
 )
 insert into public.hack_tags (hack_id, tag_id)
 select m.hack_id, t.id

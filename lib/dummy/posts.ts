@@ -1,6 +1,6 @@
 export type PostType = "bite" | "recipe" | "guide" | "external"
 
-/** Slugs match simple-icons (lowercase, no separator); `photoshop` uses a custom path. */
+/** Tool slugs; each must have a matching row in `lib/brands/manifest.ts`. */
 export type ToolSlug =
   | "photoshop"
   | "figma"
@@ -9,6 +9,8 @@ export type ToolSlug =
   | "zoom"
   | "cursor"
   | "claude"
+  | "dovetail"
+  | "lovable"
 
 export const POST_TYPE_LABEL: Record<PostType, string> = {
   bite: "Mini Hack",
@@ -107,8 +109,8 @@ export const POST_META_BY_ID: Record<string, PostMeta> = {
     postType: "recipe",
     estimatedMinutes: 18,
     title: {
-      action: "batch-export social assets with generative fill",
-      tool: { slug: "photoshop", label: "Photoshop" },
+      action: "build a working web app from one prompt",
+      tool: { slug: "lovable", label: "Lovable" },
     },
     author: {
       id: "author-lars",
@@ -190,8 +192,8 @@ export const POST_META_BY_ID: Record<string, PostMeta> = {
     postType: "bite",
     estimatedMinutes: 3,
     title: {
-      action: "summarise meeting notes into action items",
-      tool: { slug: "notion", label: "Notion" },
+      action: "turn user interviews into tagged insights",
+      tool: { slug: "dovetail", label: "Dovetail" },
     },
     author: {
       id: "author-alex",
@@ -210,8 +212,8 @@ export const POST_META_BY_ID: Record<string, PostMeta> = {
     postType: "recipe",
     estimatedMinutes: 20,
     title: {
-      action: "build an AI-powered weekly review template",
-      tool: { slug: "notion", label: "Notion" },
+      action: "refactor a legacy module with agent mode",
+      tool: { slug: "cursor", label: "Cursor" },
     },
     author: {
       id: "author-jan",
@@ -233,8 +235,8 @@ export const POST_META_BY_ID: Record<string, PostMeta> = {
     postType: "bite",
     estimatedMinutes: 5,
     title: {
-      action: "auto-summarise calls with AI Companion",
-      tool: { slug: "zoom", label: "Zoom" },
+      action: "prototype an internal tool without code",
+      tool: { slug: "lovable", label: "Lovable" },
     },
     author: {
       id: "author-nina",
@@ -277,8 +279,8 @@ export const POST_META_BY_ID: Record<string, PostMeta> = {
     postType: "recipe",
     estimatedMinutes: 25,
     title: {
-      action: "run a structured code review on pull requests",
-      tool: { slug: "claude", label: "Claude" },
+      action: "cluster survey responses into themes",
+      tool: { slug: "dovetail", label: "Dovetail" },
     },
     author: {
       id: "author-curator",

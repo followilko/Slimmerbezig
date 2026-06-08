@@ -1,5 +1,6 @@
 -- Brand logos for post cards (see lib/brands/manifest.ts + docs/design-system.md).
--- Upload objects to bucket `brand-assets` at paths like `claude/logo.svg`.
+-- Upload objects to bucket `brand-assets` named like `logo-claude.svg`
+-- (flat at the bucket root; PNG when unavoidable, e.g. `logo-lovable@2x.png`).
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
