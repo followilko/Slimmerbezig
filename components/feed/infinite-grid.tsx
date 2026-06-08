@@ -58,13 +58,18 @@ function initInfiniteGrid(
 ): () => void {
   const { wheelSpeed, dragSpeed, navigate } = options
 
-  const collection = wrapper.querySelector<HTMLElement>(
+  const collectionNode = wrapper.querySelector<HTMLElement>(
     "[data-infinite-grid-collection]"
   )
-  const sourceList = wrapper.querySelector<HTMLElement>(
+  const sourceListNode = wrapper.querySelector<HTMLElement>(
     "[data-infinite-grid-list]"
   )
-  if (!collection || !sourceList) return () => {}
+  if (!collectionNode || !sourceListNode) return () => {}
+
+  // Non-null bindings: TypeScript does not carry the guard's narrowing of a
+  // nullable const into the nested buildGrid/setGrid closures below.
+  const collection: HTMLElement = collectionNode
+  const sourceList: HTMLElement = sourceListNode
 
   const originalItems = Array.from(
     sourceList.querySelectorAll<HTMLElement>("[data-infinite-grid-item]")
