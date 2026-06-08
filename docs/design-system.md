@@ -10,9 +10,9 @@ Living rules for UI — especially **post cards** and anything that shares their
 
 | What | Where |
 |------|--------|
-| **Colors** (primary pill + secondary card bg) | [`lib/brands/manifest.ts`](../lib/brands/manifest.ts) — text colors auto-derived via [`lib/brands/contrast.ts`](../lib/brands/contrast.ts) (optional `on*` overrides) |
-| **Logo files** | Supabase Storage bucket **`brand-assets`**, path `{slug}/logo.svg` (see `logoPath` in manifest) |
-| **Local fallback** (if Storage empty) | [`public/brands/{slug}/logo.svg`](../public/brands/) — same slug as manifest |
+| **Colors** (background light + secondary card bg + primary pill) | [`lib/brands/manifest.ts`](../lib/brands/manifest.ts) — single source of truth, one row per tool; text colors auto-derived via [`lib/brands/contrast.ts`](../lib/brands/contrast.ts) (optional `on*` overrides) |
+| **Logo files** | Flat in [`public/brands/`](../public/brands/) (and bucket **`brand-assets`**) named `logo-{slug}.{ext}` — SVG preferred, PNG when unavoidable (e.g. `logo-lovable@2x.png`). Exact file name set per-row via `logoPath`. |
+| **Logo box color** | `logoBg` (+ optional `logoStroke`) per row in [`lib/brands/manifest.ts`](../lib/brands/manifest.ts) |
 | **SQL bucket** | [`supabase/10_brand_assets_storage.sql`](../supabase/10_brand_assets_storage.sql) |
 
 After adding a slug: extend `ToolSlug` in [`lib/dummy/posts.ts`](../lib/dummy/posts.ts), upload logo, run seed/migrations as needed.
@@ -24,9 +24,9 @@ After adding a slug: extend `ToolSlug` in [`lib/dummy/posts.ts`](../lib/dummy/po
 | Topic | Decision |
 |-------|----------|
 | Brand variants | **One layout per tool** — single `primary` + `secondary` (+ contrast tokens). No dark/light theme per brand. |
-| Color roles | **`primary`** = category pill. **`secondary`** = card body (mostly dark). **`on*`** text = auto light/dark via WCAG contrast pick unless overridden in manifest. |
-| Logos | **Supabase Storage from day one** (`brand-assets` bucket or equivalent). Curator UI later; initial tools seeded via script/manual upload. |
-| Headline logo box | **Fixed chrome** for every tool: **`2rem × 2rem`** box, **`0.5rem`** border-radius, `object-fit: contain` — assets vary inside the box, dimensions do not. |
+| Color roles | **`background`** = background light (container behind the card; reused as hack detail page bg). **`primary`** = category pill. **`secondary`** = card body (mostly dark). **`on*`** text = auto light/dark via WCAG contrast pick unless overridden in manifest. |
+| Logos | **Local-first:** flat files in `public/brands/` are the source today; Supabase Storage (`brand-assets`) is a fallback for curator-uploaded tools later. |
+| Headline logo box | **Fixed dimensions** for every tool: **`2rem × 2rem`** box, **`0.5rem`** border-radius, `object-fit: contain`. **Box color is per-brand** (`logoBg`, default white) with an optional `logoStroke` (e.g. Photoshop's 1px 25% white border); dimensions never vary. |
 | Peer social proof | **Outside the card** — floats underneath the rounded card box (not in wireframe mock). Still rendered in feed. |
 | Rewards (dock) | **Dummy total** until ledger exists (reuse TS metrics / placeholder). |
 | Typography | **Inter Tight** for the **whole app** (replaces Geist in root layout). |
@@ -35,17 +35,35 @@ After adding a slug: extend `ToolSlug` in [`lib/dummy/posts.ts`](../lib/dummy/po
 
 ## App header chrome
 
-The sticky top bar ([`components/shell/app-header.tsx`](../components/shell/app-header.tsx)) uses a **five-layer progressive blur** (Osmo Supply pattern) instead of a single `backdrop-blur` + tint.
+The floating chrome — sticky top bar ([`components/shell/app-header.tsx`](../components/shell/app-header.tsx)) and the bottom Ask bar ([`components/feed/ask-bar.tsx`](../components/feed/ask-bar.tsx)) — uses a single reusable **frosted-glass surface** (`.glass-bg`). The earlier five-layer progressive-blur header treatment was **removed** (see ADR 2026-06-08).
 
-| What | Where |
-|------|--------|
-| Markup | [`components/shell/progressive-blur.tsx`](../components/shell/progressive-blur.tsx) — five `progressive-blur__layer` divs (`is--1` … `is--5`) |
-| Styles | [`app/progressive-blur.css`](../app/progressive-blur.css) — imported from `globals.css` |
-| Fade zone | **`12em`** tall, anchored to the top of the header; blur strongest under the nav, fading downward into page content |
-| Tint | **None** — pure progressive blur; page shell background stays `bg-zinc-50` on [`app/(app)/layout.tsx`](../app/(app)/layout.tsx) |
-| Nav pills | Opaque white (`primary-nav`, `secondary-menu`) — unchanged |
+### Glass surface (`.glass-bg`)
 
-Do not rename BEM classes (`progressive-blur`, `progressive-blur__layer`, `is--N`); masks and blur radii are tuned as a set.
+Defined once in [`app/globals.css`](../app/globals.css) under `@layer components`. Reuse it for any floating chrome instead of redefining the blur per component.
+
+| Token | Value (Figma spec) |
+|-------|--------------------|
+| Background | `#5D5D5D` @ **40%** opacity (`rgba(93,93,93,0.4)`) |
+| Backdrop blur | **40px** (`backdrop-filter: blur(40px)`, `-webkit-` prefixed) |
+| Border | `1px solid rgba(255,255,255,0.12)` — carried by the class, so callers drop their `bg-white` / `border-black/10` |
+
+Applied to: primary nav, secondary menu, Ask bar form, and search overlay input. Because the surface is dark, inner content uses **light** text/icons: inactive nav links `text-white/70`, dividers `bg-white/25`, Ask/search input + placeholder `text-white` / `text-white/60`.
+
+### Primary nav active state — moving pill
+
+[`components/shell/primary-nav.tsx`](../components/shell/primary-nav.tsx) replaces the underline with a **sliding white pill** behind the active item (inspired by pattaxnike.com). The pill is one absolutely-positioned `<span>`; on `usePathname()` change it measures the active link's `offsetLeft/offsetWidth/offsetTop` and animates via **GSAP** (`gsap.to`, `power3.out`, 0.4s) — per the AGENTS "GSAP-first for state motion" rule. It snaps instantly (`gsap.set`) on first paint, on resize, and for `prefers-reduced-motion`, and fades out (`opacity: 0`) on pages with no matching nav item (e.g. `/saved`, `/profile`). Active link text flips to `text-zinc-900` on the pill. `PILL_HEIGHT` (44px) insets the pill within the 3.75rem glass bar.
+
+### Secondary menu — borderless white icons
+
+[`components/shell/secondary-menu.tsx`](../components/shell/secondary-menu.tsx) holds four affordances on the glass pill: **search** ([`components/shell/header-search.tsx`](../components/shell/header-search.tsx)), **favorites** (heart link to `/saved`), **avatar** (profile photo circle), **hamburger** ([`components/shell/hamburger-menu.tsx`](../components/shell/hamburger-menu.tsx)). Search, heart, and hamburger are **borderless white icons** (`text-white`, optional `hover:bg-white/15`) — no white circle backgrounds. Heart turns **red + filled** (`fill-current text-favorite`) when `savedCount > 0`; badge unchanged. Avatar stays a photo circle.
+
+### Search (header overlay)
+
+Classic hack search moved out of the bottom bar. [`components/shell/header-search.tsx`](../components/shell/header-search.tsx) toggles [`components/feed/search-overlay.tsx`](../components/feed/search-overlay.tsx) — a modal with a glass input and live results via [`components/feed/ask-search-results.tsx`](../components/feed/ask-search-results.tsx) (`showSeeAll={false}`). Escape / click-out closes. Backed by `POST /api/search`.
+
+### Ask bar — collapsed default + ask-only
+
+[`components/feed/ask-bar.tsx`](../components/feed/ask-bar.tsx) is **ask-only** (no Search/Ask tabs). Default state: **200px** wide glass pill, decorative blinking caret + "Ask ai..." ([`.animate-caret-blink`](../app/globals.css)), black circular submit with magnifier icon. **Global type-to-enter:** printable keys (when focus is not in another field) expand the pill, focus the input, and append the character. Click / `⌘K` also expand + focus. Width animates to `max-w-2xl` via GSAP; collapses on blur when empty. Submit opens [`components/feed/ask-overlay.tsx`](../components/feed/ask-overlay.tsx). Scroll-minimize behaviour unchanged.
 
 ---
 
@@ -85,6 +103,8 @@ Each post resolves a **tool slug** (`#BRAND-ID`). Registry exposes exactly two b
 
 | Token | Role |
 |-------|------|
+| `--post-brand-background` | **Background light** — container behind the card (reused as hack detail page bg) |
+| `--post-brand-on-background` | Text/peer proof on the background light |
 | `--post-brand-primary` | Post-type / category pill background |
 | `--post-brand-on-primary` | Pill text + icon |
 | `--post-brand-secondary` | **Card body** background |
@@ -109,18 +129,19 @@ Must scale to **100+** tools without per-card code.
 |-------|---------|
 | `slug` | PK, matches `tags.slug` / `ToolSlug` |
 | `label` | Display name in title |
-| `primary` | Pill color |
+| `background` | Background light (container behind card + detail page bg) |
 | `secondary` | Card bg |
-| `onPrimary`, `onSecondary`, `onSecondaryMuted` | Contrast text |
-| `logoPath` | Storage object key, e.g. `claude/logo.svg` |
+| `primary` | Pill color |
+| `onBackground`, `onPrimary`, `onSecondary`, `onSecondaryMuted` | Contrast text (auto; optional override) |
+| `logoBg`, `logoStroke` | Logo box background + optional border |
+| `logoPath` | Logo file name, e.g. `logo-claude.svg` / `logo-lovable@2x.png` |
 
-### Storage (day one)
+### Logo source order
 
-- **Bucket:** `brand-assets` (public read for authenticated users, or public CDN path).
-- **Convention:** `{slug}/logo.svg` (or `.png`; prefer SVG).
-- **URL builder:** `lib/brands/logo-url.ts` — single function from `slug` → absolute URL (no hardcoded hosts in components).
-- **Bootstrap:** one-off seed upload for current 7 `ToolSlug` values; no deploy needed to add tool #8+.
-- **Not in repo:** avoid `public/brands/` as source of truth (duplicates Storage). Optional dev fallback file only when `NODE_ENV=development` and Storage empty.
+- **Resolution:** [`BrandLogo`](../components/post/brand-logo.tsx) tries **local `public/brands/{logoPath}` first → Supabase Storage → generic `_fallback`** (advancing on `<img>` `onError`).
+- **Convention:** flat `logo-{slug}.{ext}` in `public/brands/` (and bucket `brand-assets` if used) — SVG preferred, PNG when unavoidable (e.g. `logo-lovable@2x.png`).
+- **URL builder:** `lib/brands/logo-url.ts` — `logoPath` → absolute URL for each source (no hardcoded hosts in components).
+- **Bucket:** `brand-assets` (public read) stays available for curator-uploaded tools later; not the primary source today.
 
 ### Runtime (performance)
 
@@ -131,7 +152,7 @@ Must scale to **100+** tools without per-card code.
 
 ### Deprecation
 
-Replace [`tool-icon.tsx`](../components/post/tool-icon.tsx) with `BrandLogo`; remove direct `simple-icons` imports from card tree.
+**Done:** `tool-icon.tsx` removed; the card tree uses [`BrandLogo`](../components/post/brand-logo.tsx) (Storage asset, no `simple-icons`). The `simple-icons` dependency is now unused and can be dropped from `package.json` in a later cleanup.
 
 ---
 
@@ -140,15 +161,17 @@ Replace [`tool-icon.tsx`](../components/post/tool-icon.tsx) with `BrandLogo`; re
 **Feed grid item** = optional wrapper + card + floating peer (see below).
 
 ```
-     ┌── PostCardWrapper (position relative) ──────────────────┐
-     │ ┌──────────────────────── 2rem radius ────────────────┐ │
-     │ │ TOP    [Avatar]  [type pill][min pill]  [♥]       │ │
-     │ │ MIDDLE title + BrandLogo(2rem box) + intro + meta │ │
-     │ │ DOCK   white tray: vote | comment | rewards(dummy)│ │
-     │ └───────────────────────────────────────────────────┘ │
-     │     ○○○  Peer strip (floating, below card)            │
-     └───────────────────────────────────────────────────────┘
+ ┌── Stage / background light (#1, 2.5rem radius, per-tool tint) ───────┐
+ │   ┌──────────────────────── 2rem radius (#2 card body) ──────────┐   │
+ │   │ TOP    [Avatar]  [type pill(#3)][min pill(#4)]  [♥]         │   │
+ │   │ MIDDLE title + BrandLogo(#5, 2rem box) + intro + meta       │   │
+ │   │ DOCK   white tray: vote | comment | rewards(dummy)          │   │
+ │   └────────────────────────────────────────────────────────────┘   │
+ │       ○○○  Peer strip (floats over background light, below card)    │
+ └─────────────────────────────────────────────────────────────────────┘
 ```
+
+The **stage** ([`brandStageStyle`](../lib/brands/get-brand.ts)) carries every `--post-brand-*` var + the background light; the **card body** ([`brandCardStyle`](../lib/brands/get-brand.ts)) reads `--post-brand-secondary` from it. Same `brandStageStyle` will back the hack detail page.
 
 ### Top row
 

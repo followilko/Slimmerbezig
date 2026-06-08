@@ -39,10 +39,10 @@ Quick orientation: visions and trade-offs live in [vision.md](vision.md) & [deci
 
 Shell + stubs are scaffolded (see "Done"). Content for each surface still needs to land:
 
-- **`/for-you`** ("Suggested") — shipped; full-viewport **depth tiles** GSAP carousel of six recommended **`PostCard`**s ([`components/feed/suggested-depth-feed.tsx`](../components/feed/suggested-depth-feed.tsx)); falls back to grid when `< 2` items. **`/explore`** keeps the scannable grid. Card metrics (likes/comments/points) remain TS-only until praise/points and comments schemas land.
+- **`/for-you`** ("Suggested") — shipped; full-viewport **depth tiles** GSAP carousel of six recommended **`PostCard`**s ([`components/feed/suggested-depth-feed.tsx`](../components/feed/suggested-depth-feed.tsx)); falls back to grid when `< 2` items. **`/explore`** is the **infinite draggable grid** (see below). Card metrics (likes/comments/points) remain TS-only until praise/points and comments schemas land.
 - **`/communities`** — sector / topic / tool clusters with hack lists. Shell-stubbed.
 - **`/office`** ("Peers") — same `organization_id` feed. Shell-stubbed; blocked on `organizations` migration.
-- **`/explore`** — cross-org / public hacks. Shell-stubbed; blocked on cross-org visibility schema + corpus.
+- **`/explore`** — shipped as a full-viewport **infinite draggable grid** (Osmo port, GSAP `Observer`): [`components/feed/infinite-grid.tsx`](../components/feed/infinite-grid.tsx) + [`explore-infinite-grid.tsx`](../components/feed/explore-infinite-grid.tsx). Reuses `fetchRecommendedHacks(20)` + `prepareFeedFromHacks`; tiles navigate to `/hacks/[id]` (save/vote inert on clones); reduced-motion falls back to a static grid. Replaced the old scannable grid (ADR 2026-06-08). Cross-org / public visibility still blocked on the `organization_id` schema + corpus.
 - **`/challenges`** — **partial MVP shipped:** list (mine + open peers), [`/challenges/new`](../app/(app)/challenges/new/page.tsx) create form, [`/challenges/[id]`](../app/(app)/challenges/[id]/page.tsx) detail. Ask coach deep-links here via `suggest_challenge` when `find_hacks` returns zero. Comments, hack-links, and praise still pending B2B-MVP migration.
 - **`/onboarding`** — 3-question coach: Identity / Friction / Toolkit (coverage-driven, ADR 2026-05-27)
 - **`/hacks/[id]`** — markdown render + **save/helpful/completed/praise** CTAs

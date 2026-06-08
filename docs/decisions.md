@@ -713,3 +713,60 @@ Neither calls `requireOnboarded()` — a brand-new user must be able to delete o
 **Alternatives:** Keep grid on both Suggested and Explore (rejected — no differentiated IA); Barba/page-transition carousel (rejected — conflicts with App Router per AGENTS.md); force square tiles (rejected — PostCard has natural height).
 
 **Consequences:** `/for-you` is a single-card-at-a-time browsing mode; list scanning moves to **`/explore`**. Active-only view tracking and "matched because…" reason chips are deferred. ScrollTrigger instances must be cleaned up on route change to avoid duplicates alongside Lenis.
+
+---
+
+## 2026-06-08 — Glass chrome surface + moving nav pill; progressive blur removed
+
+**Context:** The floating navigational chrome (primary nav, secondary menu, bottom Ask bar) was opaque white with a thin black border, and the active page used an underline. A new visual direction calls for a frosted-glass treatment and a sliding active-state pill (referenced from pattaxnike.com). The earlier five-layer "progressive blur" header fade (Osmo pattern, ADR 2026-05-27 — App shell) is redundant under the new look.
+
+**Decision:**
+1. **Reusable `.glass-bg`** in [`app/globals.css`](../app/globals.css) `@layer components` — `rgba(93,93,93,0.4)` bg, `backdrop-filter: blur(40px)` (Figma spec), self-carried `1px rgba(255,255,255,0.12)` border. Applied to primary nav, secondary menu, and the Ask bar form; callers drop `bg-white`/`border-black/10`.
+2. **Light inner content** on the dark surface — inactive nav links `text-white/70`, dividers `bg-white/25`, Ask input/placeholder light. Self-contained pills (Create CTA kept dark per product call, heart, avatar, hamburger, dark Ask submit) are unchanged.
+3. **Moving active pill** in [`components/shell/primary-nav.tsx`](../components/shell/primary-nav.tsx) — a single absolutely-positioned white `<span>` measured against the active link and animated with **GSAP** (`power3.out`, 0.4s); instant on first paint / resize / reduced-motion; fades out where no nav item matches. Replaces the underline.
+4. **Remove progressive blur entirely** — delete `components/shell/progressive-blur.tsx`, `app/progressive-blur.css`, the `globals.css` import, and the `<ProgressiveBlur />` mount in `app-header.tsx`.
+
+**Supersedes (partial):** "2026-05-27 — App shell via `(app)` route group + `AppHeader`" — the AppHeader structure stands; only the progressive-blur fade and the white/underline pill styling are replaced.
+
+**Alternatives:** Pure CSS transition for the pill (simpler, but AGENTS prefers GSAP for state motion); keep progressive blur alongside glass (redundant double-blur); flip the Create CTA to a white pill (declined — kept dark).
+
+**Consequences:** One `.glass-bg` utility scales to future floating chrome. Light-on-glass contrast over pale cards is a watch item — bump tint opacity or add a text shadow if AA dips. The BEM `progressive-blur` classes no longer exist; nothing else referenced them.
+
+---
+
+## 2026-06-08 — Ask-only bottom bar; search relocated to header overlay
+
+**Context:** The bottom AskBar shipped with a Search/Ask tab switch and a full-width white/glass pill. Product direction calls for a compact default "Ask ai" entry point (200px, decorative active caret, type-anywhere-to-enter) and classic hack search moved to the top-right chrome alongside favorites, avatar, and hamburger — all as borderless white icons on the glass pill.
+
+**Decision:**
+1. **Ask bar ask-only** — remove Search/Ask tabs and inline `AskSearchResults` from [`components/feed/ask-bar.tsx`](../components/feed/ask-bar.tsx). Default **200px** collapsed width; GSAP expand to `max-w-2xl` on focus/click/global key capture; decorative `.animate-caret-blink` caret + "Ask ai..." when empty/unfocused; submit opens `AskOverlay`.
+2. **Global type-to-enter** — `window` keydown appends printable keys when no other editable is focused and no overlay is open; expands + focuses the Ask bar.
+3. **Search in header** — [`components/shell/header-search.tsx`](../components/shell/header-search.tsx) + [`components/feed/search-overlay.tsx`](../components/feed/search-overlay.tsx) reuse `AskSearchResults` with `showSeeAll={false}` (no `/search` page yet).
+4. **Unified right-side icons** — search, heart, hamburger are borderless white on glass; heart red/filled when favorites exist; avatar unchanged.
+
+**Supersedes (partial):** "2026-05-27 — Continuous Ask/Search bar (global chrome)" — the bottom mount point and `⌘K` shortcut remain; the dual Search/Ask tab UI and inline search dropdown are removed from the bottom bar.
+
+**Alternatives:** Dedicated `/search` page (deferred); real autofocus on every page load (rejected — mobile keyboard intrusion); keep heart as white circle (rejected — screenshot 2 shows borderless icons).
+
+**Consequences:** Two magnifier icons (bottom submit + header search) — faithful to wireframes but semantically distinct (ask vs search). Global type capture needs hard guards around other inputs and open overlays. `secondary-menu` stays a server component; search interactivity is isolated in the `HeaderSearch` client island.
+
+---
+
+## 2026-06-08 — `/explore` becomes an infinite draggable grid (Osmo port)
+
+**Context:** `/explore` shipped as a scannable multi-column `PostCard` grid (the "list view" counterpart to the Suggested depth carousel, per ADR 2026-06-05 — Suggested depth tiles carousel, and ADR 2026-05-27 — Primary nav adds "Explore"). Product direction now wants Explore to be a distinctive, full-viewport **infinite draggable grid** (Osmo "Infinite Draggable Grid (Basic)" reference, GSAP `Observer`). The old scannable grid is considered redundant and is dropped entirely (no separate route kept).
+
+**Decision:**
+1. **Port the Osmo script** into a generic client component [`components/feed/infinite-grid.tsx`](../components/feed/infinite-grid.tsx) — all `data-infinite-grid-*` attributes, the 4-list 2x2 tiling, `Observer` config (`wheel,touch,pointer`, `preventDefault`, `dragMinimum: 3`), the `quickTo` + `gsap.utils.wrap` infinite math, and the `wheelSpeed` (0.75) / `dragSpeed` (1.25) tuning vars are preserved. Init runs in `useEffect` scoped to the component root; cleanup kills the `Observer`, clears resize/scroll timers, and removes `mouseleave`/click listeners.
+2. **React-safe hidden-template adaptation** (the one deviation from the raw script). The original script does `collection.innerHTML = ''`, which would destroy React-owned nodes and double-build under StrictMode. Instead the React `PostCard`s render once into a **hidden** `[data-infinite-grid-list]` template that is a **sibling** of the collection; the script reads/clones from it into the separate `[data-infinite-grid-collection]` and only ever mutates the collection. Measurement still works because the script clones a single item into the visible wrapper to measure. Cleanup just empties the collection, so the effect is idempotent.
+3. **Clickable tiles → detail page.** Because every visible tile is a plain DOM clone, React `onClick` handlers (the save heart + helpful/not-helpful vote buttons in `PostCardDock`) are **inert** on tiles. Navigation is handled explicitly: each item carries `data-href="/hacks/{id}"`; on a genuine tap (`Observer.onRelease` with no drag) the component calls `next/navigation` `router.push(href)` — done on release rather than `click` because `preventDefault` suppresses the synthesized click on touch. A capture-phase `click` listener cancels the cloned inner `<a>` so desktop doesn't fire a second full-page navigation.
+4. **Spacing / size.** Fixed **500px** card (`.card { width: 500px }`) with `3.25rem` (52px) item padding -> ~104px gutters between items and columns. The forced square `aspect-ratio` from the Osmo CSS is dropped; `PostCard` keeps its natural height.
+5. **Full-bleed shell.** [`app/(app)/explore/page.tsx`](../app/(app)/explore/page.tsx) keeps the `getViewer()` + `requireOnboarded()` guard and the `fetchRecommendedHacks(20)` + `prepareFeedFromHacks` data layer, then renders [`components/feed/explore-infinite-grid.tsx`](../components/feed/explore-infinite-grid.tsx) inside a `-mt-[5.25rem] -mb-32 h-[100dvh]` container. The negative top margin pulls the grid up **behind** the sticky `AppHeader` so the header's `.glass-bg` blurs the moving cards (avoids the flat/solid panel look you get when the glass blurs a static shell color); `-mb-32` neutralises the layout's `pb-32` so the AskBar still floats. No page title/label. Empty fallback when no items.
+6. **`Observer` registered centrally** in [`lib/anim/registerGsap.ts`](../lib/anim/registerGsap.ts) alongside `ScrollTrigger` + `CustomEase` (per AGENTS "register once").
+7. **`prefers-reduced-motion`** renders a plain static responsive grid (no drag / no `Observer`).
+
+**Supersedes (partial):** ADR 2026-06-05 — Suggested depth tiles carousel (the "/explore keeps the scannable grid" framing) and ADR 2026-05-27 — Primary nav adds "Explore" (the EmptyState/scannable-grid expectation). Explore is now the infinite grid; `/for-you` remains the depth carousel.
+
+**Alternatives:** Keep the scannable grid and add the infinite grid on a new `/discover` route (initially chosen, then dropped — the old grid was redundant); render real React cards without cloning (impossible — the infinite tiling requires duplicated DOM); make each tile a single wrapping `<a>` (invalid nesting with the inner links/buttons in `PostCard`).
+
+**Consequences:** Explore is a single distinctive browsing mode again differentiated from Suggested. In-grid save/vote are non-functional (they still work on `/for-you`, which animates real React nodes, not clones); if that matters later, expose a lightweight link-only card variant for the grid. `Observer` `preventDefault`s `wheel` over the wrapper; since the page itself doesn't scroll this is effectively inert against Lenis, but it means the AskBar's scroll-minimize won't trigger on `/explore`. No `primary-nav.tsx` or `proxy.ts` changes were needed (Explore was already in the nav and in `PROTECTED_PREFIXES`).
