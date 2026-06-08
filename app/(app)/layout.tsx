@@ -16,7 +16,7 @@ export default async function AppShellLayout({
   const savedCount = await getSavedCount(viewer.userId)
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50">
+    <div id="app-shell" className="flex min-h-screen flex-col bg-zinc-50">
       <AppHeader
         profile={viewer.profile}
         savedCount={savedCount}

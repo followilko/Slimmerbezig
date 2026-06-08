@@ -37,10 +37,10 @@ export function HamburgerMenu({ isCreator }: { isCreator: boolean }) {
       <BaseMenu.Trigger
         render={
           <Button
-            variant="outline"
+            variant="ghost"
             size="icon"
             aria-label="Open menu"
-            className="rounded-full border-border bg-white"
+            className="rounded-full text-white hover:bg-white/15"
           >
             <MenuIcon className="size-4" />
           </Button>
@@ -50,7 +50,7 @@ export function HamburgerMenu({ isCreator }: { isCreator: boolean }) {
         <BaseMenu.Positioner sideOffset={8} align="end">
           <BaseMenu.Popup
             className={cn(
-              "z-50 min-w-56 origin-[var(--transform-origin)] overflow-hidden rounded-xl border border-border bg-white p-1 text-sm shadow-lg outline-none",
+              "z-50 min-w-56 origin-[var(--transform-origin)] overflow-hidden rounded-xl border border-black/10 bg-white p-1 text-sm shadow-lg outline-none",
               "data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 data-[ending-style]:scale-95 data-[starting-style]:scale-95",
               "transition-[opacity,transform] duration-150"
             )}

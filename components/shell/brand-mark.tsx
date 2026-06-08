@@ -6,16 +6,21 @@ import { cn } from "@/lib/utils"
 export function BrandMark({
   href = "/for-you",
   className,
+  embedded = false,
 }: {
   href?: string
   className?: string
+  /** Inside the primary nav pill — no separate circle chrome */
+  embedded?: boolean
 }) {
   return (
     <Link
       href={href}
       aria-label="Slimmerbezig home"
       className={cn(
-        "inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-white text-foreground shadow-sm transition-shadow hover:shadow",
+        embedded
+          ? "inline-flex h-full shrink-0 items-center text-foreground"
+          : "inline-flex size-[3.75rem] shrink-0 items-center justify-center rounded-full border border-black/10 bg-white text-foreground",
         className
       )}
     >

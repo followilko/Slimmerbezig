@@ -1,30 +1,34 @@
 "use client"
 
 import gsap from "gsap"
-import {
-  ArrowRight,
-  MessageCircle,
-  Search as SearchIcon,
-} from "lucide-react"
+import { Search as SearchIcon } from "lucide-react"
 import { usePathname } from "next/navigation"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import { cn } from "@/lib/utils"
 
 import { AskOverlay } from "./ask-overlay"
-import { AskSearchResults } from "./ask-search-results"
 
 const HIDDEN_PATHS = ["/login", "/onboarding", "/checkin"]
 const HIDDEN_PREFIXES = ["/auth/"]
+const COLLAPSED_WIDTH_PX = 200
+const EXPANDED_MAX_WIDTH_PX = 672 // max-w-2xl (42rem)
 
-type Tab = "search" | "ask"
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  const tag = target.tagName
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true
+  return target.isContentEditable
+}
 
 export function AskBar() {
   const pathname = usePathname() ?? ""
   const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const pillRef = useRef<HTMLFormElement | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
-  const [tab, setTab] = useState<Tab>("search")
   const [query, setQuery] = useState("")
+  const [expanded, setExpanded] = useState(false)
+  const [focused, setFocused] = useState(false)
   const [overlayOpen, setOverlayOpen] = useState(false)
   const [overlayQuestion, setOverlayQuestion] = useState("")
 
@@ -32,9 +36,56 @@ export function AskBar() {
     HIDDEN_PATHS.includes(pathname) ||
     HIDDEN_PREFIXES.some((p) => pathname.startsWith(p))
 
+  const showDecorativeCaret = !focused && query.length === 0
+
+  const animateWidth = useCallback((toExpanded: boolean, instant = false) => {
+    const pill = pillRef.current
+    if (!pill) return
+
+    const prefersReduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches
+    const targetWidth = toExpanded ? EXPANDED_MAX_WIDTH_PX : COLLAPSED_WIDTH_PX
+
+    if (instant || prefersReduced) {
+      gsap.set(pill, { width: targetWidth })
+    } else {
+      gsap.to(pill, {
+        width: targetWidth,
+        duration: 0.4,
+        ease: "power3.out",
+      })
+    }
+    setExpanded(toExpanded)
+  }, [])
+
+  const expand = useCallback(
+    (instant = false) => {
+      if (!expanded) animateWidth(true, instant)
+    },
+    [animateWidth, expanded]
+  )
+
+  const collapse = useCallback(
+    (instant = false) => {
+      if (expanded) animateWidth(false, instant)
+    },
+    [animateWidth, expanded]
+  )
+
+  const focusInput = useCallback(() => {
+    expand()
+    requestAnimationFrame(() => inputRef.current?.focus())
+  }, [expand])
+
+  // Initial collapsed width.
+  useEffect(() => {
+    const pill = pillRef.current
+    if (!pill) return
+    gsap.set(pill, { width: COLLAPSED_WIDTH_PX })
+  }, [])
+
   // GSAP-driven minimize on scroll-down, restore on scroll-up.
-  // Uses native scroll events — Lenis bridges to window.scrollY via gsap.ticker
-  // (see SmoothScrollProvider).
   useEffect(() => {
     if (hidden || overlayOpen) return
     const el = wrapperRef.current
@@ -71,17 +122,38 @@ export function AskBar() {
     }
   }, [hidden, overlayOpen])
 
+  // Cmd/Ctrl+K focuses the Ask bar.
   useEffect(() => {
     if (hidden) return
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault()
-        inputRef.current?.focus()
+        focusInput()
       }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [hidden])
+  }, [hidden, focusInput])
+
+  // Global type-to-enter: printable keys focus + expand + append when safe.
+  useEffect(() => {
+    if (hidden || overlayOpen) return
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.key.length !== 1) return
+      if (isEditableTarget(e.target)) return
+      if (document.body.dataset.searchOverlayOpen === "true") return
+
+      e.preventDefault()
+      expand()
+      setQuery((prev) => prev + e.key)
+      requestAnimationFrame(() => inputRef.current?.focus())
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [hidden, overlayOpen, expand])
 
   if (hidden) return null
 
@@ -94,17 +166,19 @@ export function AskBar() {
     e.preventDefault()
     const text = query.trim()
     if (!text) return
-    if (tab === "ask") {
-      openOverlay(text)
-      setQuery("")
-    }
-    // Search tab submits implicitly via the dropdown — pressing Enter is a no-op.
+    openOverlay(text)
+    setQuery("")
+    setFocused(false)
+    inputRef.current?.blur()
+    collapse()
   }
 
-  const placeholder =
-    tab === "search"
-      ? "Search hacks or share a work experience"
-      : "Stel een vraag aan de coach…"
+  function handleBlur() {
+    setFocused(false)
+    if (!query.trim()) {
+      collapse()
+    }
+  }
 
   return (
     <>
@@ -112,74 +186,54 @@ export function AskBar() {
         ref={wrapperRef}
         className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4"
       >
-        <div className="pointer-events-auto w-full max-w-2xl">
-          {tab === "search" ? <AskSearchResults query={query} /> : null}
-
+        <div className="pointer-events-auto flex w-full max-w-2xl justify-center">
           <form
+            ref={pillRef}
             onSubmit={handleSubmit}
-            className="flex items-center gap-2 rounded-full border border-border bg-white p-1.5 shadow-lg"
+            onClick={() => {
+              if (!expanded) focusInput()
+            }}
+            className="glass-bg flex shrink-0 items-center gap-2 overflow-hidden rounded-full p-1.5"
+            style={{ width: COLLAPSED_WIDTH_PX }}
           >
-            <div
-              role="tablist"
-              aria-label="Search or ask the coach"
-              className="flex shrink-0 items-center gap-0.5 pl-1"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === "search"}
-                aria-label="Search hacks"
-                title="Search hacks"
-                onClick={() => setTab("search")}
-                className={cn(
-                  "inline-flex size-7 items-center justify-center rounded-full transition-colors",
-                  tab === "search"
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                )}
-              >
-                <SearchIcon className="size-3.5" />
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === "ask"}
-                aria-label="Ask the coach"
-                title="Ask the coach"
-                onClick={() => setTab("ask")}
-                className={cn(
-                  "inline-flex size-7 items-center justify-center rounded-full transition-colors",
-                  tab === "ask"
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                )}
-              >
-                <MessageCircle className="size-3.5" />
-              </button>
-            </div>
+            <div className="relative min-w-0 flex-1">
+              {showDecorativeCaret ? (
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 flex items-center gap-0.5 px-2"
+                >
+                  <span className="animate-caret-blink h-4 w-px shrink-0 bg-white" />
+                  <span className="truncate text-sm text-white/60">
+                    Ask ai...
+                  </span>
+                </div>
+              ) : null}
 
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={placeholder}
-              aria-label={placeholder}
-              className="h-9 flex-1 border-0 bg-transparent px-1 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-0"
-            />
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onFocus={() => {
+                  setFocused(true)
+                  expand()
+                }}
+                onBlur={handleBlur}
+                placeholder=""
+                aria-label="Ask ai"
+                className={cn(
+                  "h-9 w-full min-w-0 border-0 bg-transparent px-2 text-sm text-white outline-none focus:ring-0",
+                  showDecorativeCaret ? "caret-transparent" : "caret-white"
+                )}
+              />
+            </div>
 
             <button
               type="submit"
-              aria-label={tab === "ask" ? "Ask" : "Search"}
-              disabled={tab === "ask" && !query.trim()}
-              className={cn(
-                "inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-90 disabled:opacity-40"
-              )}
+              aria-label="Ask"
+              disabled={!query.trim()}
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-90 disabled:opacity-40"
             >
-              {tab === "ask" ? (
-                <ArrowRight className="size-4" />
-              ) : (
-                <SearchIcon className="size-4" />
-              )}
+              <SearchIcon className="size-4" />
             </button>
           </form>
         </div>

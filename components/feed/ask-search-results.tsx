@@ -12,7 +12,13 @@ type HackHit = {
 
 const DEBOUNCE_MS = 200
 
-export function AskSearchResults({ query }: { query: string }) {
+export function AskSearchResults({
+  query,
+  showSeeAll = true,
+}: {
+  query: string
+  showSeeAll?: boolean
+}) {
   const [hits, setHits] = useState<HackHit[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -76,14 +82,16 @@ export function AskSearchResults({ query }: { query: string }) {
               </Link>
             </li>
           ))}
-          <li className="border-t pt-1">
-            <Link
-              href={`/search?q=${encodeURIComponent(query.trim())}`}
-              className="block rounded-md px-2.5 py-1.5 text-center text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              Bekijk alle resultaten
-            </Link>
-          </li>
+          {showSeeAll ? (
+            <li className="border-t pt-1">
+              <Link
+                href={`/search?q=${encodeURIComponent(query.trim())}`}
+                className="block rounded-md px-2.5 py-1.5 text-center text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                Bekijk alle resultaten
+              </Link>
+            </li>
+          ) : null}
         </ul>
       ) : null}
     </div>
