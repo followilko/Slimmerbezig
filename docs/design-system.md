@@ -67,6 +67,21 @@ Classic hack search moved out of the bottom bar. [`components/shell/header-searc
 
 ---
 
+## App sidebar (channels IA)
+
+On `md+` the top header is replaced by a **sticky** left sidebar ([`components/shell/app-sidebar.tsx`](../components/shell/app-sidebar.tsx), `w-64`, `h-[100dvh]`, `border-r`, white) in the document flow beside main content ([`app/(app)/layout.tsx`](../app/(app)/layout.tsx) — not `position: fixed` (GSAP route transforms break fixed descendants). The original [`AppHeader`](../components/shell/app-header.tsx) is kept for mobile only (`md:hidden`); the global AskBar still floats bottom-center.
+
+Sidebar anatomy (top -> bottom): brand wordmark, primary nav ([`sidebar-nav.tsx`](../components/shell/sidebar-nav.tsx): Home / Learning Path / Peers / Knowledge base / Challenges / Channels), channel search ([`sidebar-channel-search.tsx`](../components/shell/sidebar-channel-search.tsx) -> `/channels?q=`), **Lidmaatschappen** list ([`membership-list.tsx`](../components/shell/membership-list.tsx): joined channels with a `BellOff` indicator when muted), a block **"Maken"** create menu (Channel item when `canCreateChannels`), and the user footer ([`sidebar-user.tsx`](../components/shell/sidebar-user.tsx): avatar, points pill, saved heart, hamburger). Active nav state is a prefix-aware `bg-foreground/5` highlight.
+
+## Channel pages
+
+- **Browse** (`/channels`): `ChannelCard` — `#`-prefixed name, description (`line-clamp-2`), counts, "Lid" badge; **Nieuw kanaal** CTA when `canCreateChannels`.
+- **Detail** (`/channels/[slug]`): header (name + counts + `ChannelJoinControls`; owner **Bewerken** via [`channel-owner-header.tsx`](../components/channels/channel-owner-header.tsx)) and Posts/Challenges tabs (`?tab=`).
+- **Create** (`/channels/new`): gated form with duplicate-channel suggestions.
+- **Two post variants** ([`channel-post-grid.tsx`](../components/channels/channel-post-grid.tsx)): pinned or newest hack as lead **XL** `PostCard` (+ **Vastgezet** when pinned) beside a comments stub panel; rest as **M** thumbnails. Admins see **Vastzetten** / **Losmaken** ([`channel-pin-control.tsx`](../components/channels/channel-pin-control.tsx)).
+
+---
+
 ## Typography
 
 | Role | Font | Notes |

@@ -12,6 +12,7 @@ export const PRIMARY_NAV_ITEMS = [
   { label: "Suggested", href: "/for-you" },
   { label: "Peers", href: "/office" },
   { label: "Explore", href: "/explore" },
+  { label: "Channels", href: "/channels" },
 ] as const
 
 export const PRIMARY_NAV_TRAILING = [

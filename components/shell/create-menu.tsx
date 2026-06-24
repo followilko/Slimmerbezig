@@ -1,14 +1,21 @@
 "use client"
 
 import { Menu as BaseMenu } from "@base-ui/react/menu"
-import { Lightbulb, Plus, Sparkles } from "lucide-react"
+import { Hash, Lightbulb, Plus, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 
 import { COMPOSE_PARAM, COMPOSE_HACK } from "@/components/post/post-maker/compose-param"
 import { cn } from "@/lib/utils"
 
-export function CreateMenu() {
+export function CreateMenu({
+  canCreateChannels = false,
+  variant = "pill",
+}: {
+  canCreateChannels?: boolean
+  /** "pill" = header chip; "block" = full-width sidebar button */
+  variant?: "pill" | "block"
+}) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -23,12 +30,15 @@ export function CreateMenu() {
     <BaseMenu.Root>
       <BaseMenu.Trigger
         className={cn(
-          "inline-flex h-8 items-center gap-1.5 rounded-full bg-foreground px-3 text-xs font-semibold text-background",
-          "transition-colors hover:bg-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+          "inline-flex items-center gap-1.5 bg-foreground font-semibold text-background",
+          "transition-colors hover:bg-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
+          variant === "block"
+            ? "h-9 w-full justify-center rounded-full px-3 text-sm"
+            : "h-8 rounded-full px-3 text-xs"
         )}
       >
         <Plus className="size-4" />
-        Create
+        {variant === "block" ? "Maken" : "Create"}
       </BaseMenu.Trigger>
       <BaseMenu.Portal>
         <BaseMenu.Positioner sideOffset={8} align="end">
@@ -79,6 +89,29 @@ export function CreateMenu() {
                 </Link>
               }
             />
+
+            {canCreateChannels ? (
+              <BaseMenu.Item
+                className={cn(
+                  "rounded-md p-0 outline-none",
+                  "data-[highlighted]:bg-muted"
+                )}
+                render={
+                  <Link
+                    href="/channels/new"
+                    className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-foreground"
+                  >
+                    <Hash className="size-4 text-muted-foreground" />
+                    <span className="flex flex-col">
+                      <span className="font-medium">Channel</span>
+                      <span className="text-xs text-muted-foreground">
+                        Start een nieuw kanaal voor de community
+                      </span>
+                    </span>
+                  </Link>
+                }
+              />
+            ) : null}
           </BaseMenu.Popup>
         </BaseMenu.Positioner>
       </BaseMenu.Portal>

@@ -35,6 +35,7 @@ Quick orientation: visions and trade-offs live in [vision.md](vision.md) & [deci
 - **`hack_praises`** + **`comment_praises`** (one praise per user/target)
 - **Points ledger** (append-only) — **done** in `11_post_maker.sql` (`points_ledger` + forge-proof `user_xp` total; awarded by `publish_hack`). Praise→points wiring still pending.
 - **Engagement ladder** `levels` (Explorer/Contributor/…) + `channels` + `hack_channels` — **done** in `11_post_maker.sql`. Auto-promotion on threshold + XP events beyond publish still pending.
+- **Channels surface** (ADR 2026-06-24 — Channels, migrations **`12` → `13` → `14`**): `channel_memberships` (+`notify`), `challenge_channels`, `create_channel` (+100 XP), `update_channel` (owner edit), `set_channel_pinned_hack` (one pin per channel), `channels_overview`. App: left-sidebar shell ([`app-sidebar.tsx`](../components/shell/app-sidebar.tsx), sticky `h-[100dvh]`), `/channels` browse (+ gated **Nieuw kanaal** CTA), `/channels/[slug]` (Posts/Challenges tabs, owner edit, pin controls), `/channels/new`, join + bell/mute. Onboarding auto-joins **3 sector-matched platform channels** (notifications off). Pending: notification *delivery*, inline channel comments (`hack_comments`), org-owned channels (B2B), XP auto-promotion.
 - `npx supabase gen types typescript … > lib/database.types.ts` and wire into clients
 
 ### Pages / IA

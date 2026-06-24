@@ -8,6 +8,7 @@ const PROTECTED_PREFIXES = [
   "/office",
   "/communities",
   "/explore",
+  "/channels",
   "/challenges",
   "/profile",
   "/settings",

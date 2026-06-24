@@ -280,6 +280,19 @@ function sharedTools(ctx: ToolsContext) {
   }
 }
 
+/** Platform channel slugs to auto-join per sector at onboarding (notifications off). */
+const SECTOR_CHANNELS: Record<string, readonly string[]> = {
+  design: ["design", "ai-design", "content-creation"],
+  marketing: ["marketing", "marketing-automation", "content-creation"],
+  sales: ["sales", "sales-ai", "marketing-automation"],
+  finance: ["finance", "data-insights", "productivity"],
+  product: ["product", "data-insights", "productivity"],
+  engineering: ["dev-agents", "data-insights", "productivity"],
+  operations: ["ops-automation", "productivity", "data-insights"],
+  hr: ["hr", "productivity", "content-creation"],
+  other: ["productivity", "content-creation", "data-insights"],
+}
+
 function onboardingExclusive(ctx: ToolsContext) {
   const stub = envServer.AI_CHAT_STUB_TOOLS
   return {
@@ -315,6 +328,41 @@ function onboardingExclusive(ctx: ToolsContext) {
             .eq("id", sessionId)
             .eq("user_id", ctx.userId)
           if (sesErr) console.warn("[finish_onboarding] session:", sesErr.message)
+        }
+
+        // Best-effort: auto-join the three platform channels closest to the
+        // user's sector. Notifications are off for these auto-joins. Failures
+        // must not block onboarding.
+        try {
+          const { data: prof } = await ctx.supabase
+            .from("profiles")
+            .select("sector")
+            .eq("id", ctx.userId)
+            .maybeSingle<{ sector: string | null }>()
+
+          const slugs =
+            SECTOR_CHANNELS[prof?.sector ?? "other"] ?? SECTOR_CHANNELS.other
+
+          const { data: channels } = await ctx.supabase
+            .from("channels")
+            .select("id")
+            .in("slug", [...slugs])
+            .eq("is_active", true)
+
+          const rows = (channels ?? []).map((c) => ({
+            channel_id: c.id,
+            user_id: ctx.userId,
+            notify: false,
+          }))
+
+          if (rows.length > 0) {
+            await ctx.supabase.from("channel_memberships").upsert(rows, {
+              onConflict: "channel_id,user_id",
+              ignoreDuplicates: true,
+            })
+          }
+        } catch (e) {
+          console.warn("[finish_onboarding] sector auto-join:", e)
         }
 
         return { ok: true as const }

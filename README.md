@@ -56,7 +56,14 @@ See [`.env.local.example`](.env.local.example) for placeholders.
 9. Paste [`supabase/06_hack_search.sql`](supabase/06_hack_search.sql) → **Run** (adds **`hacks.search_tsv`** weighted generated column + GIN index + **`find_hacks(query, limit)`** RPC for Postgres FTS — backs both the AskBar search dropdown and the AI `find_hacks` tool).
 10. Paste [`supabase/07_ask_session.sql`](supabase/07_ask_session.sql) → **Run** (extends **`chat_sessions_kind_check`** with `'ask'` — required for the rolling, never-closing Ask chat session powering the global AskBar).
 11. Paste [`supabase/08_seed_dummy_posts.sql`](supabase/08_seed_dummy_posts.sql) → **Run** (seeds 10 curated **post** rows + their sector/tool tags; UUIDs are hardcoded so they mirror **`POST_META_BY_ID`** in [`lib/dummy/posts.ts`](lib/dummy/posts.ts)). Idempotent — re-run any time to refresh titles/summaries. Verify: `select count(*) from public.hacks where id like 'aaaaaaaa-0001-%';` returns **10**.
-12. Paste [`supabase/10_brand_assets_storage.sql`](supabase/10_brand_assets_storage.sql) → **Run** (public Storage bucket **`brand-assets`** for post-card tool logos). Then upload SVGs at `{slug}/logo.svg` (e.g. `claude/logo.svg`) — see [docs/design-system.md](docs/design-system.md) and [`lib/brands/manifest.ts`](lib/brands/manifest.ts) for colors per tool.
+12. Paste [`supabase/09_find_hacks_v2.sql`](supabase/09_find_hacks_v2.sql) → **Run** (replaces **`find_hacks`** with v2: tag-overlap + strict FTS + gated OR fallback).
+13. Paste [`supabase/10_brand_assets_storage.sql`](supabase/10_brand_assets_storage.sql) → **Run** (public Storage bucket **`brand-assets`** for post-card tool logos). Then upload SVGs at `{slug}/logo.svg` (e.g. `claude/logo.svg`) — see [docs/design-system.md](docs/design-system.md) and [`lib/brands/manifest.ts`](lib/brands/manifest.ts) for colors per tool.
+14. Paste [`supabase/11_post_maker.sql`](supabase/11_post_maker.sql) → **Run** (engagement **`levels`** ladder, forge-proof **`user_xp`** + **`points_ledger`**, structured **`hacks`** columns, **`channels`** + **`hack_channels`**, SECURITY DEFINER **`publish_hack`** RPC).
+15. Paste [`supabase/12_channels.sql`](supabase/12_channels.sql) → **Run** (channel **memberships**, **`create_channel`** +100 XP, **`channels_overview`**, platform job-function channel seeds).
+16. Paste [`supabase/13_channel_edit.sql`](supabase/13_channel_edit.sql) → **Run** (owner **`update_channel`** RPC for name + description).
+17. Paste [`supabase/14_channel_pin.sql`](supabase/14_channel_pin.sql) → **Run** ( **`set_channel_pinned_hack`** — pin one hack to the top of a channel feed).
+
+Run migrations **in this order** on new environments. Steps 12–17 are required for the **Channels** sidebar, browse/detail pages, and post-maker channel picker.
 
 [`supabase/future_schema.sql`](supabase/future_schema.sql) is a commented-only sketch for credits, reactions, follows, paths, career tables — **do not run** until you move those features out of sketch form.
 
@@ -155,6 +162,8 @@ Product / architecture / vocabulary for agents & collaborators lives in **`docs/
 | [`lib/env.ts`](lib/env.ts) | Zod-validated public env vars |
 | [`supabase/schema.sql`](supabase/schema.sql) | Auth baseline: `profiles` + new-user trigger (run **first**) |
 | [`supabase/learning_schema.sql`](supabase/learning_schema.sql) | Learning MVP: hacks, tags, frustrations, check-ins, challenges, RLS, recommendations RPC |
+| [`supabase/11_post_maker.sql`](supabase/11_post_maker.sql) | Post maker: levels, XP, channels taxonomy, `publish_hack` RPC |
+| [`supabase/12_channels.sql`](supabase/12_channels.sql) … **`14_channel_pin.sql`** | Channels surface: memberships, create/edit/pin RPCs (run 12 → 13 → 14 in order) |
 | [`supabase/future_schema.sql`](supabase/future_schema.sql) | Commented sketch — credits / social / paths / careers (**don’t run** yet) |
 
 ## Troubleshooting

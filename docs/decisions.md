@@ -805,3 +805,65 @@ Neither calls `requireOnboarded()` — a brand-new user must be able to delete o
 **Alternatives:** Server-side OCR without a vision model (rejected — extra dependency, worse on UI chrome); storing screenshots in Supabase Storage (rejected — privacy + cost); replacing paste/URL (rejected — keep all three).
 
 **Consequences:** Screenshot quality depends on `gpt-4o-mini` OCR; can bump to `gpt-4o` if needed. Paste-into-dropzone requires focus on the dropzone (`tabIndex={0}`) unless we add a global paste listener later.
+
+---
+
+## 2026-06-24 — Channels: browse/detail surface, memberships, left-sidebar IA, gated creation
+
+**Context:** Channels existed only as a publish-time taxonomy (`channels` + `hack_channels` from [supabase/11_post_maker.sql](../supabase/11_post_maker.sql)) with an unused `levels.can_create_channels` flag. Product wants channels to be a real destination: a left-sidebar IA (wireframe Jun 2026), channel pages holding both hacks and challenges, join + per-membership update notifications, and member-created channels as a Level 2 -> Level 3 reward (+100 XP) with a quality guard against near-duplicate channels. The B2B/organisation layer is explicitly deferred — for now there is a single shared environment for all users.
+
+**Decision:**
+1. **Schema** ([supabase/12_channels.sql](../supabase/12_channels.sql)): `channels` gains `owner_kind` (`platform | user`, extensible to `organization` later) + `created_by`; new `channel_memberships` (`role`, `notify` default true, PK `(channel_id, user_id)`) and `challenge_channels` join (a channel holds hacks AND challenges). RLS: memberships readable by any authenticated user (count-only need — `profiles` is select-own, so member counts must not depend on reading others' profiles) and writable only for one's own rows; `challenge_channels` writable by the challenge author/curator.
+2. **Secure RPCs:** `user_can_create_channels(uuid)` mirrors `user_can_create_hacks` (staff bypass OR a reached level with `can_create_channels` = Specialist/L3). `create_channel(name, description, slug?)` is SECURITY DEFINER: capability gate, **normalized name/slug duplicate guard** (raises `duplicate_channel:<slug>` so the UI can nudge "join instead"), inserts a `user`-owned channel, auto-joins the creator as `owner`, and awards **+100 XP** (`user_xp` + `points_ledger`, reason `channel_created`). `channels_overview(slug?)` is SECURITY DEFINER and returns channels + member/hack/challenge counts + the caller's `is_member`/`notify` flags (one call powers both browse and the sidebar; accurate public counts despite per-row RLS).
+3. **IA shift to a left sidebar.** New [components/shell/app-sidebar.tsx](../components/shell/app-sidebar.tsx) (Home / Learning Path / Peers / Knowledge base / Challenges, channel search, "Lidmaatschappen" list with a mute indicator, block "Maken" create menu, user footer) replaces the top header on `md+`; the existing [AppHeader](../components/shell/app-header.tsx) is kept only for mobile (`md:hidden`). [app/(app)/layout.tsx](../app/(app)/layout.tsx) is now a flex-row shell with `md:pl-64`. Active nav state is a simple prefix-aware highlight (not the GSAP pill, which was horizontal-only). `/channels` added to `PROTECTED_PREFIXES` and to `PRIMARY_NAV_ITEMS` (mobile reach).
+4. **Pages:** `/channels` (browse: "Jouw kanalen" + "Ontdek", with `?q=` filter), `/channels/[slug]` (header + counts + join controls + Posts/Challenges tabs via `?tab=`), `/channels/new` (capability-gated; live existing-channel suggestions + duplicate handling). Posts tab uses two card variants ([components/channels/channel-post-grid.tsx](../components/channels/channel-post-grid.tsx)): a lead XL post beside a comments panel + standard M thumbnails. Inline comments are a labelled stub until `hack_comments` lands.
+5. **Notifications = preference only.** Each membership carries a `notify` boolean toggled via a bell on the channel header ([components/channels/channel-join-controls.tsx](../components/channels/channel-join-controls.tsx)); actual delivery is deferred.
+6. **Platform channels by job function.** Seeds with slugs equal to `profiles.sector` values (`marketing`, `content-creation`, `design`, `product`, `sales`, `finance`, `hr`) so `finish_onboarding` ([lib/ai/tools.ts](../lib/ai/tools.ts)) can best-effort auto-join the user to their sector channel.
+
+**Alternatives:** Org-scoped channels now (rejected — B2B deferred; `owner_kind` left extensible instead); pg_trgm/AI similarity for the duplicate guard (deferred — normalized name/slug uniqueness + live suggestions is enough for quality control now); avatar stacks for members (rejected — `profiles` RLS is select-own, so counts only); a dedicated GSAP vertical pill for the sidebar (deferred — static highlight is lower-risk).
+
+**Consequences:** Channels are now first-class. XP can be earned from a second source (`channel_created`), but auto-promotion on thresholds and most XP events remain deferred (so L3/channel creation is reachable today only by staff bypass or seeded XP — call out in the migration). Company/organisation-owned channels and any B2B onboarding step slot into `owner_kind` later without a schema rewrite. Inline channel comments depend on the future `hack_comments` table.
+
+---
+
+## 2026-06-24 — Channels: discoverable create CTA + muted sector auto-join
+
+**Context:** Channel creation was already gated correctly (`user_can_create_channels` / `getViewerCapabilities`: staff roles `creator`/`curator`/`admin` bypass, or Specialist/L3+ via `levels.can_create_channels`), but the only UI entry was the sidebar "Maken" dropdown — admins and eligible users could not easily find it on `/channels`. Onboarding auto-joined only one sector-matched channel with notifications on.
+
+**Decision:**
+1. **Visible create CTA on `/channels`.** [app/(app)/channels/page.tsx](../app/(app)/channels/page.tsx) renders a gated "Nieuw kanaal" pill in `PageHeader` (and in the empty state when search returns no results) when `canCreateChannels` is true. `/channels/new` remains the create flow; sidebar "Maken" unchanged.
+2. **Three-channel onboarding auto-join, muted.** `finish_onboarding` in [lib/ai/tools.ts](../lib/ai/tools.ts) uses a curated `SECTOR_CHANNELS` map (sector → three platform channel slugs) to upsert memberships with `notify: false`. `ignoreDuplicates: true` so existing memberships (e.g. owner rows) are not overwritten. Manual joins elsewhere keep the table default `notify: true`. Scope: new users at onboarding finish only (no backfill).
+3. **XP gate unchanged.** Specialist (`min_xp` 1500) remains the member progression unlock for channel creation; admin/staff bypass was already in place and is documented here for clarity.
+
+**Alternatives:** Lower Specialist to 750 XP (rejected — keep ladder as-is); keyword-match job title against channel descriptions (rejected — sector map is simpler and aligns with `profiles.sector`); backfill existing users (rejected — onboarding-only).
+
+**Consequences:** Admins and L3+ users see channel creation on the browse page without hunting the sidebar. New users land in three relevant channels with mute on by default; they can opt into notifications per channel. Tune the sector map in `lib/ai/tools.ts` when platform channels change.
+
+---
+
+## 2026-06-24 — Channel owner can edit name and description
+
+**Context:** User-created channels could only be set at creation time. Owners need to refine the title and blurb as the community grows.
+
+**Decision:**
+1. **RPC** ([supabase/13_channel_edit.sql](../supabase/13_channel_edit.sql)): `update_channel(p_slug, p_name, p_description)` is SECURITY DEFINER. Caller must have `channel_memberships.role = 'owner'` on a `owner_kind = 'user'` channel. Updates **name** and **description** only — **slug is unchanged** (stable URLs). Reuses the normalized-name duplicate guard (`duplicate_channel:<slug>`).
+2. **UI:** [components/channels/channel-owner-header.tsx](../components/channels/channel-owner-header.tsx) on `/channels/[slug]` when `ownerKind === 'user'` and `createdBy` matches the viewer — inline "Bewerken" toggles an edit form; [updateChannel](../app/(app)/channels/actions.ts) server action calls the RPC.
+
+**Alternatives:** Allow slug rename (rejected — breaks links/bookmarks); direct RLS UPDATE on `channels` (rejected — duplicate guard belongs in one RPC like `create_channel`).
+
+**Consequences:** Platform channels remain curator/admin-managed via existing `channels_write_curator` policy; member edits go through `update_channel` only.
+
+---
+
+## 2026-06-24 — Channel admin can pin a hack to the top
+
+**Context:** Channel feeds show a lead XL post + thumbnail grid. Admins need Slack-style pinning so an important hack stays visible at the top.
+
+**Decision:**
+1. **Schema** ([supabase/14_channel_pin.sql](../supabase/14_channel_pin.sql)): `channels.pinned_hack_id` (nullable FK, `ON DELETE SET NULL`). One pin per channel. **`user_can_admin_channel`**: membership `owner` on `owner_kind = 'user'` channels; `curator`/`admin` on platform channels. **`set_channel_pinned_hack(slug, hack_id)`** (null = unpin) validates the hack is published and linked via `hack_channels`.
+2. **Feed ordering:** `getChannelHackRows` puts the pinned hack first; it still renders as the XL lead post with a "Vastgezet" label.
+3. **UI:** [components/channels/channel-pin-control.tsx](../components/channels/channel-pin-control.tsx) on each post when `canAdminChannel` ([lib/channels/admin.ts](../lib/channels/admin.ts)) is true.
+
+**Alternatives:** Multiple pins (deferred — one pin matches the single lead slot); pin on `hack_channels` row (rejected — pin is channel-level, not per-link).
+
+**Consequences:** Pinning another hack replaces the current pin. Deleting a pinned hack clears the pin automatically.

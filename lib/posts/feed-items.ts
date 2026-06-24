@@ -14,7 +14,7 @@ export type HackFeedRow = {
   author_id?: string | null
 }
 
-const HACK_FEED_COLUMNS =
+export const HACK_FEED_COLUMNS =
   "id, title, summary, status, created_at, post_type, primary_tool_slug, estimated_minutes, author_id"
 
 export type PostCardReactions = {

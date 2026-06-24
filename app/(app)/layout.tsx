@@ -3,6 +3,8 @@ import { redirect } from "next/navigation"
 
 import { PostMakerModal } from "@/components/post/post-maker/post-maker-modal"
 import { AppHeader } from "@/components/shell/app-header"
+import { AppSidebar } from "@/components/shell/app-sidebar"
+import { getMyChannels } from "@/lib/channels/queries"
 import { getViewerCapabilities } from "@/lib/levels"
 import {
   displayNameFor,
@@ -20,20 +22,36 @@ export default async function AppShellLayout({
     redirect("/login")
   }
 
-  const [savedCount, capabilities] = await Promise.all([
+  const [savedCount, capabilities, memberships] = await Promise.all([
     getSavedCount(viewer.userId),
     getViewerCapabilities(viewer.userId, viewer.profile),
+    getMyChannels(),
   ])
 
   return (
-    <div id="app-shell" className="flex min-h-screen flex-col bg-zinc-50">
-      <AppHeader
+    <div id="app-shell" className="flex min-h-screen bg-zinc-50">
+      <AppSidebar
         profile={viewer.profile}
         savedCount={savedCount}
         pointsCount={capabilities.xp}
         canCreateHacks={capabilities.canCreateHacks}
+        canCreateChannels={capabilities.canCreateChannels}
+        memberships={memberships}
       />
-      <main className="flex w-full flex-1 flex-col pb-32">{children}</main>
+
+      <div className="flex min-h-screen w-full min-w-0 flex-1 flex-col">
+        {/* Mobile-only top chrome; desktop uses the sidebar. */}
+        <div className="md:hidden">
+          <AppHeader
+            profile={viewer.profile}
+            savedCount={savedCount}
+            pointsCount={capabilities.xp}
+            canCreateHacks={capabilities.canCreateHacks}
+          />
+        </div>
+
+        <main className="flex w-full flex-1 flex-col pb-32">{children}</main>
+      </div>
 
       {capabilities.canCreateHacks ? (
         <Suspense fallback={null}>
