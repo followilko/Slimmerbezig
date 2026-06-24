@@ -1,5 +1,6 @@
 import { getPostMeta, type Post } from "@/lib/dummy/posts"
 import { buildPostFromHackRow, type AuthorLite } from "@/lib/posts/build-post"
+import { loadHackStatsMap } from "@/lib/posts/hack-detail"
 import { createClient } from "@/lib/supabase/server"
 
 export type HackFeedRow = {
@@ -18,8 +19,7 @@ export const HACK_FEED_COLUMNS =
   "id, title, summary, status, created_at, post_type, primary_tool_slug, estimated_minutes, author_id"
 
 export type PostCardReactions = {
-  helpful: boolean
-  notHelpful: boolean
+  liked: boolean
 }
 
 export type FeedPostItem = {
@@ -69,19 +69,13 @@ export async function loadReactionMap(
     .select("hack_id, kind")
     .eq("user_id", userId)
     .in("hack_id", hackIds)
-    .in("kind", ["helpful", "not_helpful"])
+    .eq("kind", "helpful")
 
   for (const id of hackIds) {
-    map.set(id, { helpful: false, notHelpful: false })
+    map.set(id, { liked: false })
   }
   for (const row of data ?? []) {
-    const current = map.get(row.hack_id) ?? {
-      helpful: false,
-      notHelpful: false,
-    }
-    if (row.kind === "helpful") current.helpful = true
-    if (row.kind === "not_helpful") current.notHelpful = true
-    map.set(row.hack_id, current)
+    map.set(row.hack_id, { liked: true })
   }
   return map
 }
@@ -127,19 +121,31 @@ export async function buildFeedItems(
     .filter((h) => !getPostMeta(h.id))
     .map((h) => h.author_id)
     .filter((id): id is string => Boolean(id))
-  const authorMap = await loadAuthorMap(dbRowAuthorIds)
+  const [authorMap, statsMap] = await Promise.all([
+    loadAuthorMap(dbRowAuthorIds),
+    loadHackStatsMap(hacks.map((h) => h.id)),
+  ])
 
   return hacks.map((h) => {
     const meta = getPostMeta(h.id)
     const post: Post = meta
       ? { id: h.id, ...meta }
       : buildPostFromHackRow(h, authorMap.get(h.author_id ?? "") ?? null)
+
+    const stats = statsMap.get(h.id)
+    if (stats) {
+      post.metrics = {
+        ...post.metrics,
+        likes: stats.like_count,
+        comments: stats.comment_count,
+      }
+    }
+
     return {
       post,
       summary: h.summary,
       saved: savedIds.has(h.id),
-      reactions:
-        reactionMap.get(h.id) ?? { helpful: false, notHelpful: false },
+      reactions: reactionMap.get(h.id) ?? { liked: false },
     }
   })
 }

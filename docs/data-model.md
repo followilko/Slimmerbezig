@@ -19,6 +19,8 @@ Schemas live as SQL-first sources of truth:
 | [supabase/12_channels.sql](../supabase/12_channels.sql) | **Channels surface.** `channels` gains **`owner_kind`** (`platform`/`user`) + **`created_by`**; **`channel_memberships`** (`role`, `notify`) + **`challenge_channels`**; **`user_can_create_channels`**; **`create_channel`** (+100 XP, dedup) + **`channels_overview`**. Platform channel seeds (slugs = `profiles.sector`). |
 | [supabase/13_channel_edit.sql](../supabase/13_channel_edit.sql) | **Channel owner edits.** **`update_channel(slug, name, description)`** — owner on `owner_kind = 'user'` channels; slug unchanged. |
 | [supabase/14_channel_pin.sql](../supabase/14_channel_pin.sql) | **Channel pin.** `channels.pinned_hack_id`; **`user_can_admin_channel`**; **`set_channel_pinned_hack`**. `channels_overview` includes `pinned_hack_id`. |
+| [supabase/15_hack_engagement.sql](../supabase/15_hack_engagement.sql) | **Hack engagement.** `hack_stats` (public like/save/comment counts); forge-proof **`user_coins`** + append-only **`coin_ledger`**; SECURITY DEFINER **`toggle_hack_like`** / **`toggle_hack_save`** (Like uses `hack_interactions.kind='helpful'`). See ADR 2026-06-24 — Hack detail engagement. |
+| [supabase/16_hack_comments.sql](../supabase/16_hack_comments.sql) | **Hack comments.** Threaded **`hack_comments`** (`is_tip`, `parent_comment_id`) + **`comment_likes`**; RPCs **`add_hack_comment`**, **`delete_hack_comment`**, **`toggle_comment_like`**. Coin awards on like/comment received. |
 
 See also [decisions.md](decisions.md) for *why* (split files, ledger model, ESCO-ready tags).
 

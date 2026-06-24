@@ -1,4 +1,4 @@
-import { Flame, Heart } from "lucide-react"
+import { Bookmark, Flame } from "lucide-react"
 import Link from "next/link"
 
 import { HamburgerMenu } from "@/components/shell/hamburger-menu"
@@ -57,10 +57,10 @@ export function SidebarUser({
         aria-label={savedCount > 0 ? `${savedCount} opgeslagen` : "Opgeslagen"}
         className="relative inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
       >
-        <Heart
+        <Bookmark
           className={cn(
             "size-4",
-            savedCount > 0 ? "fill-current text-favorite" : ""
+            savedCount > 0 ? "fill-current text-foreground" : ""
           )}
         />
         {badge ? (

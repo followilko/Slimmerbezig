@@ -23,6 +23,9 @@ Canonical vocabulary — if you invent a synonym in UI copy or code comments, al
 | **Channel admin** | Who may edit channel metadata or pin hacks: **`owner`** membership on **`owner_kind = 'user'`** channels; **`curator`/`admin`** on **`platform`** channels. Enforced by **`update_channel`** and **`set_channel_pinned_hack`** RPCs. |
 | **Pinned hack** | At most one hack per channel pinned to the top of the Posts feed (**`channels.pinned_hack_id`**). Renders as the lead XL card with a **Vastgezet** label; replaced when another hack is pinned. |
 | **XP / points** | A user's lifetime activity score. Denormalized total in **`user_xp.xp`** (forge-proof — no user write), audited by the append-only **`points_ledger`**. Written only by SECURITY DEFINER RPCs; publishing a hack awards **+250**. Shown in the header points pill. |
+| **Coin** | Redeemable platform value separate from XP. Denormalized total in **`user_coins.coins`** (forge-proof), audited by append-only **`coin_ledger`**. Awarded invisibly: hack author **+1** per like or top-level comment received; comment author **+1** per comment like. Redemption UI deferred. |
+| **Like** | Public heart signal on a hack. Stored as **`hack_interactions.kind='helpful'`**; public count in **`hack_stats.like_count`**. Toggled via **`toggle_hack_like`** RPC. Replaces the former up/down vote UI (no downvote). |
+| **Hack comment** | Threaded discussion on a hack (**`hack_comments`**). Optional **`is_tip`** marks an improvement suggestion (distinct UI). Replies via **`parent_comment_id`**. Likes via **`comment_likes`**. |
 | **Level (ladder)** | Capability tier derived from XP via **`public.levels`** (`min_xp` + `can_create_hacks/_challenges/_channels`): **Explorer** (L1, consume-only) → **Contributor** (L2, unlocks hack + challenge creation) → **Specialist** (L3, + channels) → **Ambassador** (L4) … Extensible by adding rows. Distinct from **`profiles.role`** (staff/permissions); staff roles bypass the XP gate. |
 
 ## Hack taxonomy
@@ -58,6 +61,6 @@ Canonical vocabulary — if you invent a synonym in UI copy or code comments, al
 
 | Term | Definition |
 |------|-------------|
-| **Interaction kind** | Values in **`hack_interactions.kind`**: **`saved \| viewed \| completed \| helpful \| not_helpful`**. Composite PK **`(user_id, hack_id, kind)`**. |
-| **Praise** | A **`+1`-style** signal on a **hack** *or* a **challenge comment**, recorded once per (user, target). Triggers a **points** ledger entry to the target’s author. |
-| **Points** | Author-side reward number, materialised from an **append-only ledger** (`credit_ledger` pattern in **`supabase/future_schema.sql`**). Redemption mechanics are deferred — surface counters first. |
+| **Interaction kind** | Values in **`hack_interactions.kind`**: **`saved \| viewed \| completed \| helpful \| not_helpful`**. Composite PK **`(user_id, hack_id, kind)`**. **`helpful`** is repurposed as the public **Like** (heart); downvote UI removed. |
+| **Praise** | A **`+1`-style** signal on a **hack** *or* a **challenge comment**, recorded once per (user, target). Triggers a **points** ledger entry to the target’s author. *(Hack detail uses **Like** + **Coin** instead; challenge praise still pending.)* |
+| **Points** | Author-side reward number from **`points_ledger`** / **`user_xp`** — tied to XP ladder. Distinct from **Coin** (redeemable value). Redemption mechanics deferred. |

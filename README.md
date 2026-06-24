@@ -62,8 +62,10 @@ See [`.env.local.example`](.env.local.example) for placeholders.
 15. Paste [`supabase/12_channels.sql`](supabase/12_channels.sql) → **Run** (channel **memberships**, **`create_channel`** +100 XP, **`channels_overview`**, platform job-function channel seeds).
 16. Paste [`supabase/13_channel_edit.sql`](supabase/13_channel_edit.sql) → **Run** (owner **`update_channel`** RPC for name + description).
 17. Paste [`supabase/14_channel_pin.sql`](supabase/14_channel_pin.sql) → **Run** ( **`set_channel_pinned_hack`** — pin one hack to the top of a channel feed).
+18. Paste [`supabase/15_hack_engagement.sql`](supabase/15_hack_engagement.sql) → **Run** ( **`hack_stats`** public counters, forge-proof **`user_coins`** + **`coin_ledger`**, **`toggle_hack_like`** / **`toggle_hack_save`** RPCs — Like uses `hack_interactions.kind='helpful'`).
+19. Paste [`supabase/16_hack_comments.sql`](supabase/16_hack_comments.sql) → **Run** (threaded **`hack_comments`** with **`is_tip`**, **`comment_likes`**, add/delete/toggle-like RPCs — powers **`/hacks/[id]`** comments).
 
-Run migrations **in this order** on new environments. Steps 12–17 are required for the **Channels** sidebar, browse/detail pages, and post-maker channel picker.
+Run migrations **in this order** on new environments. Steps 12–19 are required for **Channels**, the post-maker channel picker, and the **hack detail** page (likes, saves, comments).
 
 [`supabase/future_schema.sql`](supabase/future_schema.sql) is a commented-only sketch for credits, reactions, follows, paths, career tables — **do not run** until you move those features out of sketch form.
 

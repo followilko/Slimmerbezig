@@ -4,15 +4,17 @@ import { cn } from "@/lib/utils"
 export function PostCardSvg({
   className,
   children,
+  fill = "currentColor",
 }: {
   className?: string
   children: React.ReactNode
+  fill?: string
 }) {
   return (
     <svg
       viewBox="0 0 24 24"
       className={cn("size-6 shrink-0", className)}
-      fill="currentColor"
+      fill={fill}
       aria-hidden
     >
       {children}

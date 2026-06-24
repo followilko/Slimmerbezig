@@ -1,47 +1,41 @@
-import type { Metadata } from "next"
 import { notFound } from "next/navigation"
+import type { Metadata } from "next"
 
-import { PostCard } from "@/components/post/post-card"
-import { EmptyStateCard } from "@/components/shell/empty-state"
-import { PageHeader, PageShell } from "@/components/shell/page-header"
-import { getPostMeta } from "@/lib/dummy/posts"
-import { buildPostFromHackRow } from "@/lib/posts/build-post"
-import { loadAuthorMap, loadReactionMap } from "@/lib/posts/feed-items"
+import { HackBody } from "@/components/post/detail/hack-body"
+import { HackCommentsSection } from "@/components/post/detail/comments/hack-comments-section"
+import { HackDetailActions } from "@/components/post/detail/hack-detail-actions"
+import { HackDetailHeader } from "@/components/post/detail/hack-detail-header"
+import { HackDetailMeta } from "@/components/post/detail/hack-detail-meta"
+import { HackRelatedPosts } from "@/components/post/detail/hack-related-posts"
+import { getBrand, brandStageStyle } from "@/lib/brands/get-brand"
+import {
+  buildDetailPost,
+  loadHackChannels,
+  loadHackComments,
+  loadHackDetail,
+  loadHackStats,
+  loadHackTags,
+  loadRelatedHacks,
+  loadViewerHackState,
+} from "@/lib/posts/hack-detail"
+import {
+  buildFeedItems,
+  loadAuthorMap,
+  loadReactionMap,
+  loadSavedHackIds,
+  type HackFeedRow,
+} from "@/lib/posts/feed-items"
 import { createClient } from "@/lib/supabase/server"
 
 type PageProps = {
   params: Promise<{ id: string }>
 }
 
-type HackDetailRow = {
-  id: string
-  title: string
-  summary: string | null
-  status: string
-  created_at: string
-  post_type: string | null
-  primary_tool_slug: string | null
-  estimated_minutes: number | null
-  author_id: string | null
-}
-
-async function loadHack(id: string) {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from("hacks")
-    .select(
-      "id, title, summary, status, created_at, post_type, primary_tool_slug, estimated_minutes, author_id"
-    )
-    .eq("id", id)
-    .maybeSingle<HackDetailRow>()
-  return data
-}
-
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { id } = await params
-  const hack = await loadHack(id)
+  const hack = await loadHackDetail(id)
   if (!hack) return { title: "Post not found" }
   return { title: hack.title }
 }
@@ -50,60 +44,146 @@ export default async function PostDetailPage({ params }: PageProps) {
   const { id } = await params
 
   const supabase = await createClient()
-  const [hack, { data: { user } }] = await Promise.all([
-    loadHack(id),
-    supabase.auth.getUser(),
-  ])
-
+  const hack = await loadHackDetail(id)
   if (!hack) notFound()
 
-  const meta = getPostMeta(hack.id)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  let saved = false
-  let reactions = { helpful: false, notHelpful: false }
-  if (user) {
-    const [{ data: savedRow }, reactionMap] = await Promise.all([
-      supabase
-        .from("hack_interactions")
-        .select("hack_id")
-        .eq("user_id", user.id)
-        .eq("hack_id", hack.id)
-        .eq("kind", "saved")
-        .maybeSingle(),
-      loadReactionMap(user.id, [hack.id]),
-    ])
-    saved = Boolean(savedRow)
-    reactions = reactionMap.get(hack.id) ?? reactions
+  const [stats, tags, channels, viewerState, comments] = await Promise.all([
+    loadHackStats(id),
+    loadHackTags(id),
+    loadHackChannels(id),
+    user ? loadViewerHackState(user.id, id) : Promise.resolve({ liked: false, saved: false }),
+    loadHackComments(id, user?.id ?? null),
+  ])
+
+  const authorMap = await loadAuthorMap(
+    hack.author_id ? [hack.author_id] : []
+  )
+  const post = await buildDetailPost(
+    hack,
+    authorMap.get(hack.author_id ?? "") ?? null
+  )
+
+  // Merge real stats into post metrics for card/dock consistency
+  post.metrics = {
+    likes: stats.like_count,
+    comments: stats.comment_count,
+    points: post.metrics.points,
   }
 
-  let post
-  if (meta) {
-    post = { id: hack.id, ...meta }
-  } else {
-    const authorMap = await loadAuthorMap(
-      hack.author_id ? [hack.author_id] : []
-    )
-    post = buildPostFromHackRow(
-      hack,
-      authorMap.get(hack.author_id ?? "") ?? null
-    )
+  const brand = getBrand(post.title.tool?.slug)
+
+  // Related posts
+  const tagIds: string[] = []
+  if (tags.length > 0) {
+    const { data: tagRows } = await supabase
+      .from("tags")
+      .select("id")
+      .in(
+        "slug",
+        tags.map((t) => t.slug)
+      )
+    tagIds.push(...(tagRows ?? []).map((r) => r.id))
+  }
+
+  const { sameAuthor, related } = await loadRelatedHacks(
+    id,
+    hack.author_id,
+    channels.map((c) => c.id),
+    tagIds
+  )
+
+  let sameAuthorItems: Awaited<ReturnType<typeof buildFeedItems>> = []
+  let relatedItems: Awaited<ReturnType<typeof buildFeedItems>> = []
+
+  if (user && (sameAuthor.length > 0 || related.length > 0)) {
+    const allIds = [...sameAuthor, ...related]
+    const { data: hackRows } = await supabase
+      .from("hacks")
+      .select(
+        "id, title, summary, status, created_at, post_type, primary_tool_slug, estimated_minutes, author_id"
+      )
+      .in("id", allIds)
+      .eq("status", "published")
+
+    const rows = (hackRows ?? []) as HackFeedRow[]
+    const savedIds = await loadSavedHackIds(user.id)
+    const reactionMap = await loadReactionMap(user.id, allIds)
+    const allItems = await buildFeedItems(rows, savedIds, reactionMap)
+
+    const itemMap = new Map(allItems.map((i) => [i.post.id, i]))
+    sameAuthorItems = sameAuthor
+      .map((hid) => itemMap.get(hid))
+      .filter(Boolean) as typeof allItems
+    relatedItems = related
+      .map((hid) => itemMap.get(hid))
+      .filter(Boolean) as typeof allItems
   }
 
   return (
-    <PageShell>
-      <PageHeader title={hack.title} />
+    <div style={brandStageStyle(brand)} className="min-h-full">
+      <div className="mx-auto max-w-3xl px-4 py-8 md:px-6 md:py-12">
+        <article
+          data-brand={brand.slug}
+          className="flex flex-col gap-8 rounded-[2rem] p-6 shadow-sm md:p-10"
+          style={{
+            backgroundColor: brand.secondary,
+            color: brand.onSecondary,
+          }}
+        >
+          <HackDetailHeader
+            post={post}
+            summary={hack.summary}
+            goal={hack.goal}
+            tags={tags}
+            channels={channels}
+          />
 
-      <PostCard
-        post={post}
-        summary={hack.summary}
-        saved={saved}
-        reactions={reactions}
-      />
+          <HackDetailMeta
+            createdAt={hack.created_at}
+            updatedAt={hack.updated_at}
+            likeCount={stats.like_count}
+            saveCount={stats.save_count}
+            commentCount={stats.comment_count}
+          />
 
-      <EmptyStateCard
-        title="Detail page komt later"
-        description="De volledige post-pagina (markdown body, comments, praise, complete-flow) volgt in een latere sprint."
-      />
-    </PageShell>
+          {user ? (
+            <HackDetailActions
+              hackId={id}
+              initialLiked={viewerState.liked}
+              initialSaved={viewerState.saved}
+              likeCount={stats.like_count}
+              saveCount={stats.save_count}
+            />
+          ) : null}
+
+          <div className="rounded-2xl bg-white/95 p-6 text-zinc-900 md:p-8">
+            <HackBody bodyMd={hack.body_md} />
+          </div>
+        </article>
+
+        <div className="mt-10 rounded-2xl bg-white p-6 shadow-sm md:p-8">
+          <HackCommentsSection
+            hackId={id}
+            hackAuthorId={hack.author_id}
+            viewerId={user?.id ?? null}
+            initialComments={comments}
+            commentCount={stats.comment_count}
+          />
+        </div>
+
+        {user ? (
+          <div className="mt-10">
+            <HackRelatedPosts
+              sameAuthorItems={sameAuthorItems}
+              relatedItems={relatedItems}
+            />
+          </div>
+        ) : null}
+      </div>
+    </div>
   )
 }

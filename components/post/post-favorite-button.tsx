@@ -2,9 +2,9 @@
 
 import { useOptimistic, useTransition } from "react"
 
-import { togglePostFavorite } from "@/app/(app)/posts/actions"
-import { IconHeart } from "@/components/icons/post-card/icon-heart"
-import { IconHeartFilled } from "@/components/icons/post-card/icon-heart-filled"
+import { toggleHackSave } from "@/app/(app)/hacks/[id]/actions"
+import { IconBookmark } from "@/components/icons/post-card/icon-bookmark"
+import { IconBookmarkFilled } from "@/components/icons/post-card/icon-bookmark-filled"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -38,7 +38,7 @@ export function PostFavoriteButton({
         return
       }
 
-      const result = await togglePostFavorite(postId)
+      const result = await toggleHackSave(postId)
       if (!result.ok) {
         setOptimisticSaved(!next)
       }
@@ -51,21 +51,19 @@ export function PostFavoriteButton({
       size="icon-sm"
       variant="ghost"
       aria-pressed={optimisticSaved}
-      aria-label={optimisticSaved ? "Remove from favorites" : "Add to favorites"}
+      aria-label={optimisticSaved ? "Verwijder uit opgeslagen" : "Opslaan"}
       disabled={pending}
       onClick={handleClick}
       className={cn(
-        // Plain white circle, no border; heart is black by default and turns
-        // red + filled when active.
         "relative z-10 size-8 rounded-full border-0 bg-white transition-colors hover:bg-white",
-        optimisticSaved ? "text-favorite" : "text-zinc-900",
+        optimisticSaved ? "text-zinc-900" : "text-zinc-900",
         className
       )}
     >
       {optimisticSaved ? (
-        <IconHeartFilled className="size-5" />
+        <IconBookmarkFilled className="size-5" />
       ) : (
-        <IconHeart className="size-5" />
+        <IconBookmark className="size-5" />
       )}
     </Button>
   )

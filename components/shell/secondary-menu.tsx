@@ -1,4 +1,4 @@
-import { Flame, Heart } from "lucide-react"
+import { Bookmark, Flame } from "lucide-react"
 import Link from "next/link"
 import { Suspense } from "react"
 
@@ -50,10 +50,10 @@ export function SecondaryMenu({
         }
         className="relative inline-flex size-8 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
       >
-        <Heart
+        <Bookmark
           className={cn(
             "size-4",
-            savedCount > 0 ? "fill-current text-favorite" : "text-white"
+            savedCount > 0 ? "fill-current text-white" : "text-white"
           )}
         />
         {badge ? (

@@ -29,7 +29,7 @@ export function PostCard({
   peerStripMode?: "static" | "carousel"
 }) {
   const brand = getBrand(post.title.tool?.slug)
-  const reactionState = reactions ?? { helpful: false, notHelpful: false }
+  const reactionState = reactions ?? { liked: false }
   const href = `/hacks/${post.id}`
 
   return (

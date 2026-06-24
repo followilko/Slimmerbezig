@@ -867,3 +867,48 @@ Neither calls `requireOnboarded()` — a brand-new user must be able to delete o
 **Alternatives:** Multiple pins (deferred — one pin matches the single lead slot); pin on `hack_channels` row (rejected — pin is channel-level, not per-link).
 
 **Consequences:** Pinning another hack replaces the current pin. Deleting a pinned hack clears the pin automatically.
+
+---
+
+## 2026-06-24 — Hack detail: Like replaces up/down vote; Save uses bookmark icon
+
+**Context:** The post-card dock shipped with mutually exclusive thumbs-up / thumbs-down (`helpful` / `not_helpful`). Product direction is positive-only engagement — "if you don't like it, don't interact." The card heart was also used for **Save**, conflating two different signals.
+
+**Decision:**
+1. **Like = heart.** Repurpose **`hack_interactions.kind='helpful'`** as the public Like. Remove downvote from **`PostCardDock`**; new **`PostLikeButton`** + **`toggle_hack_like`** RPC. Keeps existing recommendation v2 helpful-boost algebra unchanged.
+2. **Save = bookmark.** Swap **`PostFavoriteButton`**, header, and sidebar saved affordances from heart to bookmark icon. **`toggle_hack_save`** RPC maintains **`hack_stats.save_count`**.
+3. **Public counts** via denormalized **`hack_stats`** ([`supabase/15_hack_engagement.sql`](../supabase/15_hack_engagement.sql)) — clients cannot aggregate **`hack_interactions`** (select-own RLS).
+
+**Alternatives:** New `hack_likes` table (rejected — duplicate of helpful); keep dual heart icons with labels (rejected — confusing).
+
+**Consequences:** Legacy [`components/feed/hack-card-actions.tsx`](../components/feed/hack-card-actions.tsx) still exposes thumbs UI on unmigrated surfaces. **`not_helpful`** rows remain valid for recommendation exclude but are no longer written from the main UI.
+
+---
+
+## 2026-06-24 — Redeemable coins ledger (separate from XP)
+
+**Context:** XP (`user_xp` / **`points_ledger`**) gates the engagement ladder and is shown in the header. Product wants a second, invisible economy — redeemable **coins** rewarding authors for peer engagement, without conflating progression XP with redeemable value.
+
+**Decision:**
+1. **`user_coins`** (forge-proof denormalized balance) + append-only **`coin_ledger`** in [`supabase/15_hack_engagement.sql`](../supabase/15_hack_engagement.sql), mirroring the XP pattern. No authenticated write policy.
+2. **Award rules (v1):** hack author **+1 coin** per Like received and per top-level comment received; comment author **+1 coin** per comment like. Self-engagement skipped. Negative deltas on unlike / comment delete.
+3. **No UI yet** — coins are backend-only until redemption mechanics are designed.
+
+**Alternatives:** Reuse **`points_ledger`** (rejected — mixes ladder XP with redeemable value); surface coin counter on profile now (deferred).
+
+**Consequences:** Share-as-coin deferred (no share affordance). **`user_total_coins(uuid)`** helper exposed for future profile/wallet UI.
+
+---
+
+## 2026-06-24 — Hack detail page + threaded comments
+
+**Context:** [`/hacks/[id]`](../app/(app)/hacks/[id]/page.tsx) was a stub (single **`PostCard`** + empty state). The detail page is where users read the full hack, discuss, and discover related content.
+
+**Decision:**
+1. **Schema** ([`supabase/16_hack_comments.sql`](../supabase/16_hack_comments.sql)): **`hack_comments`** (threaded via **`parent_comment_id`**, **`is_tip`** for improvement suggestions) + **`comment_likes`**. SECURITY DEFINER RPCs: **`add_hack_comment`**, **`delete_hack_comment`**, **`toggle_comment_like`**.
+2. **UI:** Brand-stage reading surface — header (title, tool, goal, tags, channels, author), meta row, Like/Save actions, markdown body via **`react-markdown`** + fenced-code "AI-snippet" styling ([`components/post/detail/`](../components/post/detail/)). Patreon-style comment section with sort, reply threads, **AUTEUR** badge, **Verbetertip** styling.
+3. **Footer:** "Van dezelfde auteur" + "Gerelateerd" post grids reusing **`prepareFeedFromHacks`**.
+
+**Alternatives:** Structured content blocks + hero image (deferred — **`body_md`** only for now); praise table separate from likes (deferred).
+
+**Consequences:** Run migrations **`15`** then **`16`** on Supabase before the page works end-to-end. Channel inline comment stub on channel pages remains separate until wired to the same component.
