@@ -1,4 +1,5 @@
 import { getPostMeta, type Post } from "@/lib/dummy/posts"
+import { buildPostFromHackRow, type AuthorLite } from "@/lib/posts/build-post"
 import { createClient } from "@/lib/supabase/server"
 
 export type HackFeedRow = {
@@ -7,7 +8,14 @@ export type HackFeedRow = {
   summary: string | null
   status: string
   created_at: string
+  post_type?: string | null
+  primary_tool_slug?: string | null
+  estimated_minutes?: number | null
+  author_id?: string | null
 }
+
+const HACK_FEED_COLUMNS =
+  "id, title, summary, status, created_at, post_type, primary_tool_slug, estimated_minutes, author_id"
 
 export type PostCardReactions = {
   helpful: boolean
@@ -27,7 +35,7 @@ export async function fetchPublishedHacksFallback(
   const supabase = await createClient()
   const { data } = await supabase
     .from("hacks")
-    .select("id, title, summary, status, created_at")
+    .select(HACK_FEED_COLUMNS)
     .eq("status", "published")
     .order("created_at", { ascending: false })
     .limit(limit)
@@ -78,6 +86,26 @@ export async function loadReactionMap(
   return map
 }
 
+/** Batch-fetch author profiles for DB-built posts (avoids N+1). */
+export async function loadAuthorMap(
+  authorIds: string[]
+): Promise<Map<string, NonNullable<AuthorLite>>> {
+  const map = new Map<string, NonNullable<AuthorLite>>()
+  const ids = Array.from(new Set(authorIds.filter(Boolean)))
+  if (ids.length === 0) return map
+
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, full_name, given_name, family_name, avatar_url, headline")
+    .in("id", ids)
+
+  for (const row of (data ?? []) as NonNullable<AuthorLite>[]) {
+    map.set(row.id, row)
+  }
+  return map
+}
+
 export async function loadSavedHackIds(userId: string): Promise<Set<string>> {
   const supabase = await createClient()
   const { data } = await supabase
@@ -88,23 +116,31 @@ export async function loadSavedHackIds(userId: string): Promise<Set<string>> {
   return new Set((data ?? []).map((r) => r.hack_id))
 }
 
-export function buildFeedItems(
+export async function buildFeedItems(
   hacks: HackFeedRow[],
   savedIds: Set<string>,
   reactionMap: Map<string, PostCardReactions>
-): FeedPostItem[] {
-  return hacks.flatMap((h) => {
+): Promise<FeedPostItem[]> {
+  // Legacy seeds carry TS metadata; everything else (incl. user-published
+  // hacks) is built from DB columns + a batched author lookup.
+  const dbRowAuthorIds = hacks
+    .filter((h) => !getPostMeta(h.id))
+    .map((h) => h.author_id)
+    .filter((id): id is string => Boolean(id))
+  const authorMap = await loadAuthorMap(dbRowAuthorIds)
+
+  return hacks.map((h) => {
     const meta = getPostMeta(h.id)
-    if (!meta) return []
-    return [
-      {
-        post: { id: h.id, ...meta },
-        summary: h.summary,
-        saved: savedIds.has(h.id),
-        reactions:
-          reactionMap.get(h.id) ?? { helpful: false, notHelpful: false },
-      },
-    ]
+    const post: Post = meta
+      ? { id: h.id, ...meta }
+      : buildPostFromHackRow(h, authorMap.get(h.author_id ?? "") ?? null)
+    return {
+      post,
+      summary: h.summary,
+      saved: savedIds.has(h.id),
+      reactions:
+        reactionMap.get(h.id) ?? { helpful: false, notHelpful: false },
+    }
   })
 }
 
@@ -117,5 +153,5 @@ export async function prepareFeedFromHacks(
     loadSavedHackIds(userId),
     loadReactionMap(userId, ids),
   ])
-  return buildFeedItems(hacks, savedIds, reactionMap)
+  return await buildFeedItems(hacks, savedIds, reactionMap)
 }

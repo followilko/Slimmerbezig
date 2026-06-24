@@ -770,3 +770,38 @@ Neither calls `requireOnboarded()` — a brand-new user must be able to delete o
 **Alternatives:** Keep the scannable grid and add the infinite grid on a new `/discover` route (initially chosen, then dropped — the old grid was redundant); render real React cards without cloning (impossible — the infinite tiling requires duplicated DOM); make each tile a single wrapping `<a>` (invalid nesting with the inner links/buttons in `PostCard`).
 
 **Consequences:** Explore is a single distinctive browsing mode again differentiated from Suggested. In-grid save/vote are non-functional (they still work on `/for-you`, which animates real React nodes, not clones); if that matters later, expose a lightweight link-only card variant for the grid. `Observer` `preventDefault`s `wheel` over the wrapper; since the page itself doesn't scroll this is effectively inert against Lenis, but it means the AskBar's scroll-minimize won't trigger on `/explore`. No `primary-nav.tsx` or `proxy.ts` changes were needed (Explore was already in the nav and in `PROTECTED_PREFIXES`).
+
+---
+
+## 2026-06-24 — Post maker: AI-generated hacks, engagement ladder, channels, XP
+
+**Context:** Members need to turn their own AI work into peer-learnable hacks. Product wants a "+ Create" entry (Hack / Challenge), a modal that converts a pasted AI conversation **or** a public link into an editable hack draft, channel selection (min 1), and a +250 XP reward on publish. Creation must be gated to a progression tier (Explorer L1 → Contributor L2 → …, **≥4 levels**), and conversations may contain PII that must never be stored.
+
+**Decision:**
+1. **Engagement ladder decoupled from `role`.** `profiles.role` stays the staff/permission tier (learner/creator/curator/admin). A new **capability-flagged ladder** drives creation: `public.levels` (`level, slug, name, min_xp, can_create_hacks/_challenges/_channels`) seeded with explorer/contributor/specialist/ambassador. A user has every capability whose `min_xp` they've reached. Adding a level = inserting a row (scales to N). See [supabase/11_post_maker.sql](../supabase/11_post_maker.sql).
+2. **Forge-proof XP.** Because `profiles_update_own` allows users to update any own-row column, XP lives in a dedicated **`user_xp`** table (denormalized running total) with **no authenticated write policy**; **`points_ledger`** is the append-only audit. Both are written only by SECURITY DEFINER RPCs. Display reads `user_xp.xp` (single-row, no SUM).
+3. **`publish_hack` SECURITY DEFINER RPC** does the publish atomically: capability gate (`user_can_create_hacks`, staff bypass), insert `hacks` (`source='user'`, `status='published'`, structured fields), link `hack_tags` + `hack_channels` (**raises if <1 channel**), `user_xp += 250` + ledger row. This is the level-gated publish path; the legacy role-based `hacks_insert` RLS stays for direct/staff inserts.
+4. **Structured hack fields moved to the DB** (`hacks.post_type / primary_tool_slug / estimated_minutes / goal`) so **generated hacks render without TS dummy metadata**. `lib/posts/build-post.ts` builds the UI `Post` from a DB row (batched author lookup) or from an in-memory draft (preview); `buildFeedItems` uses `POST_META_BY_ID` for the 10 legacy seeds and falls back to the DB builder otherwise. `Post.title.tool` is now nullable (toolless hacks).
+5. **PII-safe generation, nothing raw persisted.** [app/api/hacks/generate/route.ts](../app/api/hacks/generate/route.ts) calls `generateObject` (gpt-4o-mini) with a hard redaction system prompt + a defense-in-depth regex scrub; it **never writes to the DB and never logs raw input**. URL ingestion is **SSRF-guarded** (https-only, private/loopback/link-local/metadata IP blocks via DNS lookup, manual redirect re-validation, timeout, size cap). Only the cleaned, user-edited draft is stored on publish.
+6. **Channels primitive (pick-only for now).** `public.channels` (seeded ~8) + `public.hack_channels`. Member-created channels unlock at a higher level later (`can_create_channels`).
+7. **UX.** Capability-gated "+ Create" (`components/shell/create-menu.tsx`, base-ui menu) → Hack opens the globally-mounted `PostMakerModal` via a `?compose=hack` query param (deep-linkable, Suspense-wrapped); Challenge links `/challenges/new`. `/hacks/new` redirects eligible users to `/for-you?compose=hack`, others to `/become-a-creator`.
+
+**Alternatives:** XP on `profiles` (rejected — forgeable via `profiles_update_own`); summing `points_ledger` per request (rejected — slower than a denormalized counter); a generic client-callable `award_points` (rejected — forgeable; XP only via `publish_hack`); global modal mount in `app/providers.tsx` (rejected — kept in `(app)/layout.tsx` so it only loads for eligible users and gets viewer props without a client fetch); keeping structured fields in TS dummy meta (rejected — generated hacks would be invisible in feeds).
+
+**Consequences:** A reusable XP/level base now exists; **auto-promotion on threshold and XP-earning events beyond publishing are deferred**, so Contributor (`min_xp 250`) is currently only reachable by staff bypass or seeding `user_xp`/lowering the threshold — call out in the migration. URL ingestion is best-effort (private/JS-gated pages fall back to the paste box). Sending conversations to OpenAI is inherent to the feature; the privacy guarantee is about **storage**, enforced by never persisting raw input. The 10 legacy seed posts still rely on `POST_META_BY_ID`; new hacks are fully DB-driven.
+
+---
+
+## 2026-06-24 — Post maker: screenshot (vision) capture
+
+**Context:** Copy-pasting full AI conversations is too cumbersome (CTRL+A, messy UI). Users need a lower-friction capture path while URL and paste remain available for future iteration.
+
+**Decision:**
+1. **Third input: screenshot(s).** The post-maker left pane adds an upload dropzone (file picker, drag-and-drop, clipboard paste) after the conversation field. Up to **4 images** per generate; client downscales to JPEG (~1600px long edge) via [`components/post/post-maker/downscale-screenshot.ts`](../components/post/post-maker/downscale-screenshot.ts) to stay under Vercel request-body limits.
+2. **Vision generation path.** [`app/api/hacks/generate/route.ts`](../app/api/hacks/generate/route.ts) accepts `sourceType: "screenshot"` + `images[]` (base64 data URLs). Calls `generateObject` with `gpt-4o-mini` (vision) using `messages` + image content parts from [`lib/ai/hack-generation.ts`](../lib/ai/hack-generation.ts) (`buildScreenshotUserContent`, `SCREENSHOT_INSTRUCTION`). Same `hackDraftSchema`, `scrubDraft`, and capability gate as text paths.
+3. **Generate precedence.** One source per request: URL > screenshot > conversation (first non-empty wins).
+4. **Privacy unchanged.** Raw images are **never stored** — transient in the request only; only the scrubbed draft is returned and the published hack is persisted.
+
+**Alternatives:** Server-side OCR without a vision model (rejected — extra dependency, worse on UI chrome); storing screenshots in Supabase Storage (rejected — privacy + cost); replacing paste/URL (rejected — keep all three).
+
+**Consequences:** Screenshot quality depends on `gpt-4o-mini` OCR; can bump to `gpt-4o` if needed. Paste-into-dropzone requires focus on the dropzone (`tabIndex={0}`) unless we add a global paste listener later.

@@ -22,7 +22,7 @@ const APP_SHELL_ID = "app-shell"
 export function SuggestedDepthFeed({ items }: { items: FeedPostItem[] }) {
   // Background-light color per tile, in the same order as the rendered tiles.
   const backgrounds = useMemo(
-    () => items.map(({ post }) => getBrand(post.title.tool.slug).background),
+    () => items.map(({ post }) => getBrand(post.title.tool?.slug).background),
     [items]
   )
 

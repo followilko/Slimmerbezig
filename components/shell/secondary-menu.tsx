@@ -1,7 +1,9 @@
 import { Flame, Heart } from "lucide-react"
 import Link from "next/link"
+import { Suspense } from "react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { CreateMenu } from "@/components/shell/create-menu"
 import { HamburgerMenu } from "@/components/shell/hamburger-menu"
 import { HeaderSearch } from "@/components/shell/header-search"
 import { isCreator as isCreatorRole } from "@/lib/auth/role"
@@ -19,10 +21,12 @@ export function SecondaryMenu({
   profile,
   savedCount,
   pointsCount,
+  canCreateHacks,
 }: {
   profile: ViewerProfile | null
   savedCount: number
   pointsCount: number
+  canCreateHacks: boolean
 }) {
   const isCreator = isCreatorRole(profile)
   const badge = savedCount > 99 ? "99+" : savedCount > 0 ? String(savedCount) : null
@@ -31,6 +35,12 @@ export function SecondaryMenu({
 
   return (
     <div className="glass-bg flex h-[3.75rem] items-center gap-2 rounded-full px-[1em]">
+      {canCreateHacks ? (
+        <Suspense fallback={null}>
+          <CreateMenu />
+        </Suspense>
+      ) : null}
+
       <HeaderSearch />
 
       <Link

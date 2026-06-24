@@ -15,6 +15,7 @@ Schemas live as SQL-first sources of truth:
 | [supabase/08_seed_dummy_posts.sql](../supabase/08_seed_dummy_posts.sql) | Idempotent seed: 10 curated `hacks` rows + sector/tool tags + `hack_tags` links. Hardcoded UUIDs (`aaaaaaaa-0001-0001-0001-00000000000N`) mirror **`POST_META_BY_ID`** in [`lib/dummy/posts.ts`](../lib/dummy/posts.ts) so DB rows decorate with TS-only metadata (post type, minutes, author, peers, metrics) until the B2B schema deltas below land. See ADR 2026-05-28 — Dummy posts seeded as curated hacks. |
 | [supabase/09_find_hacks_v2.sql](../supabase/09_find_hacks_v2.sql) | **`find_hacks` v2** (same signature): tier-1 tag-overlap on query tokens × `hack_tags`, tier-2 strict FTS (`websearch_to_tsquery`), tier-3 gated OR fallback with inline stop-word strip + sanitised `to_tsquery`. Recent-published fallback for empty / all-stop-word queries only; substantive no-match queries return an empty set. See ADR 2026-05-28 — `find_hacks` v2. |
 | [supabase/10_brand_assets_storage.sql](../supabase/10_brand_assets_storage.sql) | Storage bucket **`brand-assets`** (public read) for post-card tool logos; colors live in [`lib/brands/manifest.ts`](../lib/brands/manifest.ts). See [design-system.md](design-system.md). |
+| [supabase/11_post_maker.sql](../supabase/11_post_maker.sql) | **Post maker base.** Engagement ladder **`levels`** (capability flags, ≥4 seeded) + forge-proof **`user_xp`** (denormalized total) + append-only **`points_ledger`**; structured **`hacks`** columns (**`post_type`**, **`primary_tool_slug`**, **`estimated_minutes`**, **`goal`**); **`channels`** + **`hack_channels`** (seeded ~8); helper fns **`user_total_xp`** / **`user_level`** / **`user_can_create_hacks`**; SECURITY DEFINER **`publish_hack(...)`** (capability gate + atomic insert + tags + channels≥1 + 250 XP). See ADR 2026-06-24 — Post maker. |
 
 See also [decisions.md](decisions.md) for *why* (split files, ledger model, ESCO-ready tags).
 
@@ -87,6 +88,8 @@ erDiagram
 ## Planned (B2B-MVP — schema deltas being scoped)
 
 These are **decided but not yet migrated**. They are tracked in [decisions.md](decisions.md) (B2B SaaS, post types, taxonomy, challenge answers, praise→points, external sources) and [roadmap.md](roadmap.md) (Next → Schema).
+
+> **Partially landed (ADR 2026-06-24 — Post maker, [`supabase/11_post_maker.sql`](../supabase/11_post_maker.sql)):** `hacks.post_type` + `hacks.goal` columns, a `points_ledger` (with forge-proof `user_xp` total), the `levels` engagement ladder, and `channels` + `hack_channels` now exist. Still pending below: `organizations` / `profiles.organization_id`, `hacks.source = 'external'` (+ `source_url`), praise tables, org-scoped RLS, and auto-promotion on level thresholds.
 
 ### New / changed columns
 

@@ -5,25 +5,35 @@ import { PostCard } from "@/components/post/post-card"
 import { EmptyStateCard } from "@/components/shell/empty-state"
 import { PageHeader, PageShell } from "@/components/shell/page-header"
 import { getPostMeta } from "@/lib/dummy/posts"
-import { loadReactionMap } from "@/lib/posts/feed-items"
+import { buildPostFromHackRow } from "@/lib/posts/build-post"
+import { loadAuthorMap, loadReactionMap } from "@/lib/posts/feed-items"
 import { createClient } from "@/lib/supabase/server"
 
 type PageProps = {
   params: Promise<{ id: string }>
 }
 
+type HackDetailRow = {
+  id: string
+  title: string
+  summary: string | null
+  status: string
+  created_at: string
+  post_type: string | null
+  primary_tool_slug: string | null
+  estimated_minutes: number | null
+  author_id: string | null
+}
+
 async function loadHack(id: string) {
   const supabase = await createClient()
   const { data } = await supabase
     .from("hacks")
-    .select("id, title, summary, status")
+    .select(
+      "id, title, summary, status, created_at, post_type, primary_tool_slug, estimated_minutes, author_id"
+    )
     .eq("id", id)
-    .maybeSingle<{
-      id: string
-      title: string
-      summary: string | null
-      status: string
-    }>()
+    .maybeSingle<HackDetailRow>()
   return data
 }
 
@@ -48,7 +58,6 @@ export default async function PostDetailPage({ params }: PageProps) {
   if (!hack) notFound()
 
   const meta = getPostMeta(hack.id)
-  if (!meta) notFound()
 
   let saved = false
   let reactions = { helpful: false, notHelpful: false }
@@ -67,7 +76,18 @@ export default async function PostDetailPage({ params }: PageProps) {
     reactions = reactionMap.get(hack.id) ?? reactions
   }
 
-  const post = { id: hack.id, ...meta }
+  let post
+  if (meta) {
+    post = { id: hack.id, ...meta }
+  } else {
+    const authorMap = await loadAuthorMap(
+      hack.author_id ? [hack.author_id] : []
+    )
+    post = buildPostFromHackRow(
+      hack,
+      authorMap.get(hack.author_id ?? "") ?? null
+    )
+  }
 
   return (
     <PageShell>

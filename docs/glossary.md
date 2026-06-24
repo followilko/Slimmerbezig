@@ -18,6 +18,9 @@ Canonical vocabulary — if you invent a synonym in UI copy or code comments, al
 | **User interest** | **`user_interests`** links a user to **`tags`** with **`kind ∈ {tool, capability}`** and a **weight**; written by the AI coach (or future UI) to bias **`get_recommended_hacks`**. |
 | **Tag suggestion** | **`tag_suggestions`** queue for **new controlled-vocabulary labels** proposed by learners or the LLM; only **curator/admin** promotes rows into **`tags`**. |
 | **Chat session** | **`chat_sessions`** + **`chat_messages`** — coach transcripts; at most **one open** session per (`user_id`, **`kind`** = onboarding \| check-in). |
+| **Channel** | A topic cluster users join to discover hacks (**`channels`**, seeded; member-created later). A published hack links to ≥1 channel via **`hack_channels`** (enforced by `publish_hack`). Distinct from **tags** (matching vocabulary) and **communities** (sector/topic feeds). |
+| **XP / points** | A user's lifetime activity score. Denormalized total in **`user_xp.xp`** (forge-proof — no user write), audited by the append-only **`points_ledger`**. Written only by SECURITY DEFINER RPCs; publishing a hack awards **+250**. Shown in the header points pill. |
+| **Level (ladder)** | Capability tier derived from XP via **`public.levels`** (`min_xp` + `can_create_hacks/_challenges/_channels`): **Explorer** (L1, consume-only) → **Contributor** (L2, unlocks hack + challenge creation) → **Specialist** (L3, + channels) → **Ambassador** (L4) … Extensible by adding rows. Distinct from **`profiles.role`** (staff/permissions); staff roles bypass the XP gate. |
 
 ## Hack taxonomy
 

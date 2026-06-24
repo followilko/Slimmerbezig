@@ -45,7 +45,14 @@ export type Post = {
   estimatedMinutes: number
   title: {
     action: string
-    tool: { slug: ToolSlug; label: string }
+    tool: { slug: ToolSlug; label: string } | null
+    /**
+     * Optional full, free-form headline (user-authored hacks). When set, this is
+     * the canonical title and the card renders it verbatim (with an inline tool
+     * icon where a known tool name is recognised). Legacy/seeded posts leave this
+     * undefined and fall back to the `how to {action} in {tool}` template.
+     */
+    text?: string
   }
   author: PostAuthor
   publishedAt: string
@@ -58,10 +65,11 @@ export type Post = {
 /** Wireframe-only metadata; merged onto each public.hacks row by id. */
 export type PostMeta = Omit<Post, "id">
 
-/** Assembles the canonical post title from structured parts. */
+/** Assembles the canonical post title from structured parts (or free text). */
 export function formatPostTitle(post: Pick<Post, "title">): string {
-  const { action, tool } = post.title
-  return `how to ${action} in ${tool.label}`
+  const { action, tool, text } = post.title
+  if (text?.trim()) return text.trim()
+  return tool ? `how to ${action} in ${tool.label}` : `how to ${action}`
 }
 
 export function getPostById(id: string): Post | undefined {

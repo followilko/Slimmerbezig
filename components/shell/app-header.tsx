@@ -6,10 +6,12 @@ export function AppHeader({
   profile,
   savedCount,
   pointsCount,
+  canCreateHacks,
 }: {
   profile: ViewerProfile | null
   savedCount: number
   pointsCount: number
+  canCreateHacks: boolean
 }) {
   return (
     <header className="sticky top-0 z-40 px-4 py-3 sm:px-6">
@@ -19,6 +21,7 @@ export function AppHeader({
           profile={profile}
           savedCount={savedCount}
           pointsCount={pointsCount}
+          canCreateHacks={canCreateHacks}
         />
       </div>
     </header>

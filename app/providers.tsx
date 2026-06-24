@@ -1,6 +1,7 @@
 "use client"
 
 import { ThemeProvider } from "next-themes"
+import { Suspense } from "react"
 
 import { SmoothScrollProvider } from "@/components/anim/SmoothScrollProvider"
 import { AskBar } from "@/components/feed/ask-bar"
@@ -14,7 +15,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange
     >
       <SmoothScrollProvider>{children}</SmoothScrollProvider>
-      <AskBar />
+      <Suspense fallback={null}>
+        <AskBar />
+      </Suspense>
       <Toaster />
     </ThemeProvider>
   )

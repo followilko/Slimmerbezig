@@ -2,9 +2,10 @@
 
 import gsap from "gsap"
 import { Search as SearchIcon } from "lucide-react"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 
+import { COMPOSE_HACK, COMPOSE_PARAM } from "@/components/post/post-maker/compose-param"
 import { cn } from "@/lib/utils"
 
 import { AskOverlay } from "./ask-overlay"
@@ -23,6 +24,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
 
 export function AskBar() {
   const pathname = usePathname() ?? ""
+  const searchParams = useSearchParams()
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const pillRef = useRef<HTMLFormElement | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -32,7 +34,11 @@ export function AskBar() {
   const [overlayOpen, setOverlayOpen] = useState(false)
   const [overlayQuestion, setOverlayQuestion] = useState("")
 
+  // Hide while the post-maker (or any compose modal) is open — keep the screen
+  // to the forms only.
+  const composing = searchParams.get(COMPOSE_PARAM) === COMPOSE_HACK
   const hidden =
+    composing ||
     HIDDEN_PATHS.includes(pathname) ||
     HIDDEN_PREFIXES.some((p) => pathname.startsWith(p))
 

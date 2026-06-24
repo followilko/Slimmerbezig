@@ -272,6 +272,18 @@ Source SVGs live in [`public/icons/`](../public/icons/) (`BxHeart.svg`, `BxUpArr
 
 ---
 
+## Post maker modal
+
+The hack composer ([`components/post/post-maker/post-maker-modal.tsx`](../components/post/post-maker/post-maker-modal.tsx)) is a two-pane overlay opened via the `?compose=hack` query param (set by the capability-gated **"+ Create"** menu, [`components/shell/create-menu.tsx`](../components/shell/create-menu.tsx)). It is mounted once in [`app/(app)/layout.tsx`](../app/(app)/layout.tsx) for users with `canCreateHacks` and reuses the search-overlay conventions (backdrop click-out, Escape, body scroll-lock).
+
+| Pane | Content |
+|------|---------|
+| **Left — "Nieuwe post"** | Public-link `Input` + "of" divider + conversation `Textarea` + "of" divider + screenshot dropzone (file picker, drag-and-drop, clipboard paste; max 4, client-downscaled JPEG); privacy microcopy; **Genereer** button (calls `/api/hacks/generate` with `sourceType`: url → screenshot → conversation precedence). |
+| **Right — "Artikel draft"** | Live **`<PostCard>`** preview (built from the draft via `buildPostFromDraft`, wrapped `pointer-events-none` so it's inert); editable **Title / Samenvatting / Inhoud**; **Channels toevoegen** toggle chips (min 1); footer "and earn **+250 XP**" + **Publish**. |
+
+- Preview tints: the preview sits on a neutral `bg-zinc-100` tray (brand vars cascade from the card body, not the wrapper).
+- New primitive: [`components/ui/textarea.tsx`](../components/ui/textarea.tsx) (shadcn-style; none existed before).
+
 ## References
 
 - Card: [`components/post/post-card.tsx`](../components/post/post-card.tsx)

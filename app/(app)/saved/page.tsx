@@ -16,7 +16,12 @@ type SavedRow = {
   hacks: {
     id: string
     status: string
+    title: string
     summary: string | null
+    post_type: string | null
+    primary_tool_slug: string | null
+    estimated_minutes: number | null
+    author_id: string | null
   } | null
 }
 
@@ -29,7 +34,9 @@ export default async function SavedPage() {
 
   const { data } = await supabase
     .from("hack_interactions")
-    .select("hack_id, created_at, hacks!inner(id, status, summary)")
+    .select(
+      "hack_id, created_at, hacks!inner(id, status, title, summary, post_type, primary_tool_slug, estimated_minutes, author_id)"
+    )
     .eq("user_id", userId)
     .eq("kind", "saved")
     .order("created_at", { ascending: false })
@@ -43,10 +50,14 @@ export default async function SavedPage() {
     return [
       {
         id: r.hack_id,
-        title: "",
+        title: r.hacks.title,
         summary: r.hacks.summary,
         status: r.hacks.status,
         created_at: r.created_at,
+        post_type: r.hacks.post_type,
+        primary_tool_slug: r.hacks.primary_tool_slug,
+        estimated_minutes: r.hacks.estimated_minutes,
+        author_id: r.hacks.author_id,
       },
     ]
   })
@@ -56,7 +67,7 @@ export default async function SavedPage() {
     hacks.map((h) => h.id)
   )
   const savedIds = new Set(hacks.map((h) => h.id))
-  const items = buildFeedItems(hacks, savedIds, reactionMap)
+  const items = await buildFeedItems(hacks, savedIds, reactionMap)
   const count = items.length
 
   return (
